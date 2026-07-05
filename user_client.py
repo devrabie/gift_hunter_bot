@@ -5,9 +5,9 @@ import asyncio
 import logging
 import os
 import time
-from kurigram import Client
-from kurigram.enums import GiftForResaleOrder
-from kurigram.errors import SessionPasswordNeeded, PhoneCodeInvalid, PhoneCodeExpired
+from pyrogram import Client
+from pyrogram.enums import GiftForResaleOrder
+from pyrogram.errors import SessionPasswordNeeded, PhoneCodeInvalid, PhoneCodeExpired
 
 logger = logging.getLogger(__name__)
 
@@ -345,13 +345,13 @@ async def get_available_gifts() -> list[dict]:
                     return await primary_client.get_gifts()
                 else:
                     try:
-                        from kurigram.raw.functions.payments import GetStarGifts
+                        from pyrogram.raw.functions.payments import GetStarGifts
                         res = await primary_client.invoke(GetStarGifts(hash=0))
                         return getattr(res, "gifts", [])
                     except ImportError:
                         pass
                     try:
-                        from kurigram.raw.functions.payments import GetGifts
+                        from pyrogram.raw.functions.payments import GetGifts
                         res = await primary_client.invoke(GetGifts(hash=0))
                         return getattr(res, "gifts", [])
                     except ImportError:
