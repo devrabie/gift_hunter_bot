@@ -1,0 +1,349 @@
+try:
+    from telethon.tl.functions.payments import GetStarGiftsRequest
+except ImportError:
+    # تعريف بديل لمنع انهيار البوت
+    GetStarGiftsRequest = None
+"""
+Telethon user client — تسجيل دخول الحساب وشراء الهدايا الرقمية من تيليجرام مباشرةً.
+"""
+import logging
+import random as _random
+
+from telethon import TelegramClient
+from telethon.errors import (
+    PhoneCodeExpiredError,
+    PhoneCodeInvalidError,
+    SessionPasswordNeededError,
+)
+from telethon.sessions import StringSession
+
+import storage
+
+logger = logging.getLogger(__name__)
+
+_pending: dict[int, dict] = {}
+
+
+def _make_client(session_string: str | None, api_id: int, api_hash: str) -> TelegramClient:
+    return TelegramClient(
+        StringSession(session_string or ""),
+        api_id,
+        api_hash,
+        device_model="Gift Hunter Bot",
+        system_version="Linux x86_64",
+        app_version="2.0",
+        lang_code="ar",
+    )
+
+
+def _get_creds() -> tuple[int, str] | None:
+    from config import TELEGRAM_API_ID, TELEGRAM_API_HASH
+    creds = storage.get_account_credentials()
+    api_id = creds.get("api_id") or TELEGRAM_API_ID
+    api_hash = creds.get("api_hash") or TELEGRAM_API_HASH
+    if not api_id or not api_hash:
+        return None
+    return int(api_id), api_hash
+
+
+def _extract_gift_name(gift) -> str | None:
+    """استخرج اسم الهدية من كائن Telethon StarGift."""
+    title = getattr(gift, "title", None)
+    if title:
+        return str(title)
+
+    sticker = getattr(gift, "sticker", None)
+    if sticker:
+        for attr in getattr(sticker, "attributes", []):
+            sticker_set = getattr(attr, "stickerset", None)
+            if sticker_set:
+                set_title = getattr(sticker_set, "title", None)
+                if set_title:
+                    return str(set_title)
+            alt = getattr(attr, "alt", None)
+            if alt:
+                return str(alt)
+
+    return None
+
+
+def _gift_matches_name(gift_name: str | None, search: str) -> bool:
+    """هل اسم الهدية يطابق كلمة البحث؟ (تطابق جزئي وغير حساس للحروف الكبيرة)"""
+    if not gift_name:
+        return False
+    return search.strip().lower() in gift_name.lower()
+
+
+# ── session string ────────────────────────────────────────────────────────────
+
+async def set_session_directly(bot_user_id: int, session_string: str) -> dict:
+    creds = _get_creds()
+    if not creds:
+        return {"ok": False, "error": "لم يتم تعيين API_ID / API_HASH بعد."}
+    api_id, api_hash = creds
+    client = _make_client(session_string.strip(), api_id, api_hash)
+    try:
+        await client.connect()
+        if not await client.is_user_authorized():
+            await client.disconnect()
+            return {"ok": False, "error": "الـ session string غير صالح أو منتهي الصلاحية."}
+        me = await client.get_me()
+        await client.disconnect()
+        storage.set_session_string(session_string.strip())
+        name = f"{me.first_name or ''} {me.last_name or ''}".strip() if me else "مستخدم"
+        return {"ok": True, "name": name, "username": getattr(me, "username", None)}
+    except Exception as e:
+        try:
+            await client.disconnect()
+        except Exception:
+            pass
+        logger.error("set_session_directly: %s", e)
+        return {"ok": False, "error": str(e)}
+
+
+# ── phone login ───────────────────────────────────────────────────────────────
+
+async def start_phone_login(bot_user_id: int, phone: str) -> dict:
+    creds = _get_creds()
+    if not creds:
+        return {"ok": False, "error": "لم يتم تعيين API_ID / API_HASH بعد."}
+    api_id, api_hash = creds
+    await cancel_login(bot_user_id)
+    client = _make_client(None, api_id, api_hash)
+    try:
+        await client.connect()
+        result = await client.send_code_request(phone)
+        _pending[bot_user_id] = {
+            "client": client,
+            "phone": phone,
+            "phone_code_hash": result.phone_code_hash,
+        }
+        return {"ok": True}
+    except Exception as e:
+        try:
+            await client.disconnect()
+        except Exception:
+            pass
+        logger.error("start_phone_login: %s", e)
+        return {"ok": False, "error": str(e)}
+
+
+async def complete_phone_login(bot_user_id: int, code: str) -> dict:
+    data = _pending.get(bot_user_id)
+    if not data:
+        return {"ok": False, "error": "لا توجد جلسة نشطة. ابدأ من جديد."}
+    client: TelegramClient = data["client"]
+    try:
+        await client.sign_in(
+            phone=data["phone"],
+            code=code.strip(),
+            phone_code_hash=data["phone_code_hash"],
+        )
+        session_string = client.session.save()
+        me = await client.get_me()
+        await client.disconnect()
+        _pending.pop(bot_user_id, None)
+        storage.set_session_string(session_string)
+        name = f"{me.first_name or ''} {me.last_name or ''}".strip() if me else "مستخدم"
+        return {"ok": True, "name": name, "username": getattr(me, "username", None)}
+    except SessionPasswordNeededError:
+        return {"ok": False, "need_password": True}
+    except (PhoneCodeInvalidError, PhoneCodeExpiredError):
+        return {"ok": False, "error": "رمز التحقق غير صحيح أو منتهي. حاول مرة أخرى."}
+    except Exception as e:
+        logger.error("complete_phone_login: %s", e)
+        return {"ok": False, "error": str(e)}
+
+
+async def complete_2fa(bot_user_id: int, password: str) -> dict:
+    data = _pending.get(bot_user_id)
+    if not data:
+        return {"ok": False, "error": "لا توجد جلسة نشطة. ابدأ من جديد."}
+    client: TelegramClient = data["client"]
+    try:
+        await client.sign_in(password=password)
+        session_string = client.session.save()
+        me = await client.get_me()
+        await client.disconnect()
+        _pending.pop(bot_user_id, None)
+        storage.set_session_string(session_string)
+        name = f"{me.first_name or ''} {me.last_name or ''}".strip() if me else "مستخدم"
+        return {"ok": True, "name": name, "username": getattr(me, "username", None)}
+    except Exception as e:
+        logger.error("complete_2fa: %s", e)
+        return {"ok": False, "error": str(e)}
+
+
+async def cancel_login(bot_user_id: int) -> None:
+    data = _pending.pop(bot_user_id, None)
+    if data:
+        try:
+            await data["client"].disconnect()
+        except Exception:
+            pass
+
+
+# ── account info ──────────────────────────────────────────────────────────────
+
+async def get_me() -> dict | None:
+    creds = _get_creds()
+    session_string = storage.get_session_string()
+    if not creds or not session_string:
+        return None
+    api_id, api_hash = creds
+    client = _make_client(session_string, api_id, api_hash)
+    try:
+        await client.connect()
+        if not await client.is_user_authorized():
+            await client.disconnect()
+            return None
+        me = await client.get_me()
+        await client.disconnect()
+        if not me:
+            return None
+        return {
+            "id": me.id,
+            "name": f"{me.first_name or ''} {me.last_name or ''}".strip(),
+            "username": me.username,
+        }
+    except Exception as e:
+        logger.error("get_me: %s", e)
+        try:
+            await client.disconnect()
+        except Exception:
+            pass
+        return None
+
+
+async def logout() -> None:
+    storage.clear_session()
+    logger.info("Session cleared")
+
+
+# ── gift fetching ─────────────────────────────────────────────────────────────
+
+async def get_available_gifts() -> list[dict]:
+    """
+    جلب كل الهدايا المتاحة من تيليجرام مع اسمها وسعرها.
+    يعيد: [{"id": int, "stars": int, "name": str|None, "limited": bool, "availability_remains": int|None}]
+    """
+    creds = _get_creds()
+    session_string = storage.get_session_string()
+    if not creds or not session_string:
+        return []
+    api_id, api_hash = creds
+    client = _make_client(session_string, api_id, api_hash)
+    try:
+        await client.connect()
+        if not await client.is_user_authorized():
+            await client.disconnect()
+            logger.warning("get_available_gifts: الجلسة غير مصرّح بها")
+            return []
+
+        from telethon.tl.functions.payments import GetStarGiftsRequest
+        result = await client(GetStarGiftsRequest(hash=0))
+
+        gifts = []
+        for g in (result.gifts or []):
+            stars = getattr(g, "stars", None)
+            gift_id = getattr(g, "id", None)
+            if stars is None or gift_id is None:
+                continue
+
+            name = _extract_gift_name(g)
+            limited = getattr(g, "limited", False)
+            availability = getattr(g, "availability_remains", None)
+            sold_out = getattr(g, "sold_out", False)
+
+            if sold_out:
+                continue
+
+            gifts.append({
+                "id": gift_id,
+                "stars": int(stars),
+                "name": name,
+                "limited": limited,
+                "availability_remains": availability,
+            })
+
+        await client.disconnect()
+        logger.info("جلب %d هدية من تيليجرام", len(gifts))
+        return gifts
+
+    except ImportError as e:
+        logger.error("get_available_gifts — Telethon قديمة ولا تدعم Star Gifts: %s", e)
+        try:
+            await client.disconnect()
+        except Exception:
+            pass
+        return []
+    except Exception as e:
+        logger.error("get_available_gifts: %s", e)
+        try:
+            await client.disconnect()
+        except Exception:
+            pass
+        return []
+
+
+# ── gift purchase ─────────────────────────────────────────────────────────────
+
+async def buy_gift_to_self(gift_id: int) -> dict:
+    """اشترِ هدية وأبقها في حسابك (أرسلها لنفسك)."""
+    creds = _get_creds()
+    session_string = storage.get_session_string()
+    if not creds:
+        return {"ok": False, "error": "لم يتم تعيين API_ID / API_HASH."}
+    if not session_string:
+        return {"ok": False, "error": "لم يتم تسجيل الدخول. اذهب إلى 👤 الحساب."}
+
+    api_id, api_hash = creds
+    client = _make_client(session_string, api_id, api_hash)
+
+    try:
+        await client.connect()
+        if not await client.is_user_authorized():
+            await client.disconnect()
+            storage.clear_session()
+            return {"ok": False, "error": "انتهت صلاحية الجلسة. سجل الدخول من جديد."}
+
+        from telethon.tl.functions.payments import SendStarGiftRequest
+
+        # ✅ الإصلاح الرئيسي: استخدم entity حقيقي بدلاً من InputPeerSelf
+        me = await client.get_me()
+        if not me:
+            await client.disconnect()
+            return {"ok": False, "error": "تعذّر جلب بيانات الحساب."}
+
+        peer = await client.get_input_entity(me.id)
+
+        # random_id يجب أن يكون موجباً دائماً
+        random_id = _random.randint(1, 2**63 - 1)
+
+        await client(SendStarGiftRequest(
+            peer=peer,
+            gift_id=gift_id,
+            random_id=random_id,
+            hide_my_name=False,
+            message=None,
+        ))
+        await client.disconnect()
+        logger.info("✅ تم شراء الهدية id=%s", gift_id)
+        return {"ok": True}
+
+    except ImportError as e:
+        try:
+            await client.disconnect()
+        except Exception:
+            pass
+        err = f"Telethon قديمة ولا تدعم Star Gifts. حدّثها: pip install telethon==1.37.0 — {e}"
+        logger.error("buy_gift_to_self ImportError: %s", e)
+        return {"ok": False, "error": err}
+    except Exception as e:
+        try:
+            await client.disconnect()
+        except Exception:
+            pass
+        err = str(e)
+        logger.error("buy_gift_to_self %s: %s", gift_id, err)
+        return {"ok": False, "error": err}

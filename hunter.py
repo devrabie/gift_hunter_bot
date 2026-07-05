@@ -1,0 +1,106 @@
+import asyncio
+import logging
+from datetime import datetime
+import storage
+import user_client
+from config import DEVELOPER_ID, HUNT_INTERVAL
+
+logger = logging.getLogger(__name__)
+_hunt_task, _stats, _bot_ref, _bought_ids, _cycle = None, {"found": 0, "bought": 0, "errors": 0}, None, set(), 0
+
+def get_stats() -> dict: return _stats.copy()
+def set_bot(bot) -> None: global _bot_ref; _bot_ref = bot
+
+async def _send_notify(chat_id: int, text: str) -> None:
+    if _bot_ref:
+        try: await _bot_ref.send_message(chat_id=chat_id, text=text, parse_mode="Markdown")
+        except: pass
+
+def _is_match(gift: dict, target: dict) -> bool:
+    """المطابقة الذكية والعميقة بين شروط الهدف والمواصفات الحية للهدية"""
+    if target.get("type") == "named":
+        search = target.get("name", "").strip().lower()
+        if search not in gift.get("base_name", "").lower() and search not in gift.get("name", "").lower():
+            return False
+
+    # فحص سعر النجوم
+    max_stars = target.get("max_stars") or target.get("max_price")
+    if max_stars and max_stars > 0:
+        if gift["stars"] is None or gift["stars"] > max_stars:
+            return False
+
+    # فحص سعر التون
+    max_ton = target.get("max_ton")
+    if max_ton:
+        if gift["ton"] is None or gift["ton"] > max_ton:
+            return False
+
+    # فحص رقم الإصدار (Mint Number)
+    max_mint = target.get("max_mint")
+    if max_mint:
+        if gift["mint_number"] == 0 or gift["mint_number"] > max_mint:
+            return False
+
+    # فحص ندرة الموديل
+    max_rarity = target.get("max_rarity")
+    if max_rarity:
+        if gift["rarity"] > max_rarity:
+            return False
+
+    return True
+
+async def _check_and_buy(notify_chat_id: int) -> None:
+    global _cycle; _cycle += 1
+    targets = storage.get_targets()
+    if not targets: return
+
+    gifts = await user_client.get_available_gifts()
+    if not gifts: return
+
+    for gift in gifts:
+        if gift["id"] in _bought_ids: continue
+
+        for target in targets:
+            if _is_match(gift, target):
+                _stats["found"] += 1
+                name_display = gift["name"]
+                
+                prices = []
+                if gift["stars"]: prices.append(f"`{gift['stars']:,}` ⭐")
+                if gift["ton"]: prices.append(f"`{gift['ton']}` 💎")
+                price_txt = " أو ".join(prices)
+
+                await _send_notify(notify_chat_id, f"🎯 *لقطة لقطة مطابقة للفلاتر!*\n\n🏷 الاسم: `{name_display}`\n🔢 النسخة: `#{gift['mint_number']}`\n✨ الندرة: `{gift['rarity']}‰`\n💰 السعر: {price_txt}\n\n⚡ _جاري القنص الصاعق..._")
+
+                use_ton = True if gift["stars"] is None and gift["ton"] is not None else False
+                result = await user_client.buy_gift_to_self(gift["id"], use_ton=use_ton)
+                
+                if result["ok"]:
+                    _stats["bought"] += 1
+                    _bought_ids.add(gift["id"])
+                    await _send_notify(notify_chat_id, f"✅ *تم الشراء والاقتاص الفوري بنجاح!*\n📥 `{name_display}` تم حفظها بالحساب الخاص بك.")
+                else:
+                    _stats["errors"] += 1
+                    await _send_notify(notify_chat_id, f"❌ *فشل القنص الفوري*\n⚠️ السبب: `{result.get('error')}`")
+                break 
+
+async def _hunt_loop(notify_chat_id: int) -> None:
+    _stats["started_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    await user_client.initialize_all_clients()
+    while storage.is_hunting():
+        try:
+            await _check_and_buy(notify_chat_id)
+        except Exception as e:
+            _stats["errors"] += 1
+        await asyncio.sleep(HUNT_INTERVAL)
+
+def start_hunting(bot, notify_chat_id: int) -> None:
+    global _hunt_task
+    set_bot(bot); storage.set_hunting(True)
+    if not _hunt_task or _hunt_task.done(): _hunt_task = asyncio.create_task(_hunt_loop(notify_chat_id))
+
+def stop_hunting() -> None:
+    global _hunt_task
+    storage.set_hunting(False)
+    if _hunt_task: _hunt_task.cancel(); _hunt_task = None
+

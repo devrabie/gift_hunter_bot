@@ -1,0 +1,105 @@
+2026-06-27 23:16:25,227 | INFO | __main__ | 🤖 بوت الهدايا الرقمية — يعمل
+2026-06-27 23:16:25,296 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/getMe "HTTP/1.1 200 OK"
+2026-06-27 23:16:25,314 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/deleteWebhook "HTTP/1.1 200 OK"
+2026-06-27 23:16:25,317 | INFO | apscheduler.scheduler | Scheduler started
+2026-06-27 23:16:25,317 | INFO | telegram.ext.Application | Application started
+2026-06-27 23:16:25,377 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/getUpdates "HTTP/1.1 200 OK"
+2026-06-27 23:16:25,430 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/sendMessage "HTTP/1.1 200 OK"
+2026-06-27 23:16:33,225 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/getUpdates "HTTP/1.1 200 OK"
+2026-06-27 23:16:33,667 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/sendMessage "HTTP/1.1 200 OK"
+2026-06-27 23:16:35,319 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/getUpdates "HTTP/1.1 200 OK"
+2026-06-27 23:16:35,352 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/answerCallbackQuery "HTTP/1.1 200 OK"
+2026-06-27 23:16:35,356 | INFO | hunter | Hunt loop started — فحص كل 2 ثانية
+2026-06-27 23:16:35,361 | INFO | telethon.network.mtprotosender | Connecting to 149.154.167.92:443/TcpFull...
+2026-06-27 23:16:35,386 | INFO | telethon.network.mtprotosender | Connection to 149.154.167.92:443/TcpFull complete!
+2026-06-27 23:16:35,407 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/editMessageText "HTTP/1.1 200 OK"
+2026-06-27 23:16:35,897 | INFO | telethon.network.mtprotosender | Disconnecting from 149.154.167.92:443/TcpFull...
+2026-06-27 23:16:35,898 | INFO | telethon.network.mtprotosender | Disconnection from 149.154.167.92:443/TcpFull complete!
+2026-06-27 23:16:35,898 | INFO | user_client | جلب 11 هدية من تيليجرام
+2026-06-27 23:16:35,954 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/sendMessage "HTTP/1.1 200 OK"
+2026-06-27 23:16:35,956 | INFO | hunter | دورة 1 — فحص 11 هدية مقابل 1 هدف
+2026-06-27 23:16:37,959 | INFO | telethon.network.mtprotosender | Connecting to 149.154.167.92:443/TcpFull...
+2026-06-27 23:16:37,971 | INFO | telethon.network.mtprotosender | Connection to 149.154.167.92:443/TcpFull complete!
+2026-06-27 23:16:38,093 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/getUpdates "HTTP/1.1 200 OK"
+2026-06-27 23:16:38,118 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/answerCallbackQuery "HTTP/1.1 200 OK"
+2026-06-27 23:16:38,160 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/editMessageText "HTTP/1.1 200 OK"
+2026-06-27 23:16:48,115 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/getUpdates "HTTP/1.1 200 OK"
+2026-06-27 23:16:58,139 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/getUpdates "HTTP/1.1 200 OK"
+2026-06-27 23:17:08,161 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/getUpdates "HTTP/1.1 200 OK"
+2026-06-27 23:17:18,181 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/getUpdates "HTTP/1.1 200 OK"
+2026-06-27 23:17:28,203 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/getUpdates "HTTP/1.1 200 OK"
+2026-06-27 23:17:38,220 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/getUpdates "HTTP/1.1 200 OK"
+2026-06-27 23:17:48,240 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/getUpdates "HTTP/1.1 200 OK"
+2026-06-27 23:17:58,259 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/getUpdates "HTTP/1.1 200 OK"
+2026-06-27 23:18:08,283 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/getUpdates "HTTP/1.1 200 OK"
+2026-06-27 23:18:17,821 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/getUpdates "HTTP/1.1 200 OK"
+2026-06-27 23:18:17,922 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/sendMessage "HTTP/1.1 200 OK"
+2026-06-27 23:18:27,847 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/getUpdates "HTTP/1.1 200 OK"
+2026-06-27 23:18:28,442 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/getUpdates "HTTP/1.1 200 OK"
+2026-06-27 23:18:28,520 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/answerCallbackQuery "HTTP/1.1 200 OK"
+2026-06-27 23:18:28,574 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/editMessageText "HTTP/1.1 200 OK"
+2026-06-27 23:18:34,033 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/getUpdates "HTTP/1.1 200 OK"
+2026-06-27 23:18:34,106 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/answerCallbackQuery "HTTP/1.1 200 OK"
+2026-06-27 23:18:34,161 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/editMessageText "HTTP/1.1 200 OK"
+2026-06-27 23:18:43,410 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/getUpdates "HTTP/1.1 200 OK"
+2026-06-27 23:18:43,549 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/sendMessage "HTTP/1.1 200 OK"
+2026-06-27 23:18:45,252 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/getUpdates "HTTP/1.1 200 OK"
+2026-06-27 23:18:45,384 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/answerCallbackQuery "HTTP/1.1 200 OK"
+2026-06-27 23:18:45,606 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/editMessageText "HTTP/1.1 200 OK"
+2026-06-27 23:18:46,785 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/getUpdates "HTTP/1.1 200 OK"
+2026-06-27 23:18:46,814 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/answerCallbackQuery "HTTP/1.1 200 OK"
+2026-06-27 23:18:46,818 | INFO | hunter | Hunt loop started — فحص كل 2 ثانية
+2026-06-27 23:18:46,820 | INFO | telethon.network.mtprotosender | Connecting to 149.154.167.92:443/TcpFull...
+2026-06-27 23:18:46,833 | INFO | telethon.network.mtprotosender | Connection to 149.154.167.92:443/TcpFull complete!
+2026-06-27 23:18:46,878 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/editMessageText "HTTP/1.1 200 OK"
+2026-06-27 23:18:47,427 | INFO | telethon.network.mtprotosender | Disconnecting from 149.154.167.92:443/TcpFull...
+2026-06-27 23:18:47,428 | INFO | telethon.network.mtprotosender | Disconnection from 149.154.167.92:443/TcpFull complete!
+2026-06-27 23:18:47,429 | INFO | user_client | جلب 11 هدية من تيليجرام
+2026-06-27 23:18:47,483 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/sendMessage "HTTP/1.1 200 OK"
+2026-06-27 23:18:47,485 | INFO | hunter | دورة 1 — فحص 11 هدية مقابل 1 هدف
+2026-06-27 23:18:49,488 | INFO | telethon.network.mtprotosender | Connecting to 149.154.167.92:443/TcpFull...
+2026-06-27 23:18:49,500 | INFO | telethon.network.mtprotosender | Connection to 149.154.167.92:443/TcpFull complete!
+2026-06-27 23:18:49,943 | INFO | telethon.network.mtprotosender | Disconnecting from 149.154.167.92:443/TcpFull...
+2026-06-27 23:18:49,944 | INFO | telethon.network.mtprotosender | Disconnection from 149.154.167.92:443/TcpFull complete!
+2026-06-27 23:18:49,944 | INFO | user_client | جلب 11 هدية من تيليجرام
+2026-06-27 23:18:49,944 | INFO | hunter | دورة 2 — فحص 11 هدية مقابل 1 هدف
+2026-06-27 23:18:50,715 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/getUpdates "HTTP/1.1 200 OK"
+2026-06-27 23:18:50,746 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/answerCallbackQuery "HTTP/1.1 200 OK"
+2026-06-27 23:18:50,809 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/editMessageText "HTTP/1.1 200 OK"
+2026-06-27 23:19:00,737 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/getUpdates "HTTP/1.1 200 OK"
+2026-06-27 23:19:10,754 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/getUpdates "HTTP/1.1 200 OK"
+2026-06-27 23:19:20,771 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/getUpdates "HTTP/1.1 200 OK"
+2026-06-27 23:19:30,787 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/getUpdates "HTTP/1.1 200 OK"
+2026-06-27 23:19:40,804 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/getUpdates "HTTP/1.1 200 OK"
+2026-06-27 23:19:50,828 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/getUpdates "HTTP/1.1 200 OK"
+2026-06-27 23:20:00,871 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/getUpdates "HTTP/1.1 200 OK"
+2026-06-27 23:20:10,904 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/getUpdates "HTTP/1.1 200 OK"
+2026-06-27 23:20:20,927 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/getUpdates "HTTP/1.1 200 OK"
+2026-06-27 23:20:30,950 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/getUpdates "HTTP/1.1 200 OK"
+2026-06-27 23:20:40,971 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/getUpdates "HTTP/1.1 200 OK"
+2026-06-27 23:20:50,996 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/getUpdates "HTTP/1.1 200 OK"
+2026-06-27 23:21:01,025 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/getUpdates "HTTP/1.1 200 OK"
+2026-06-27 23:21:11,046 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/getUpdates "HTTP/1.1 200 OK"
+2026-06-27 23:21:21,069 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/getUpdates "HTTP/1.1 200 OK"
+2026-06-27 23:21:31,083 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/getUpdates "HTTP/1.1 200 OK"
+2026-06-27 23:21:41,103 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/getUpdates "HTTP/1.1 200 OK"
+2026-06-27 23:21:49,762 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/getUpdates "HTTP/1.1 200 OK"
+2026-06-27 23:21:49,873 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/sendMessage "HTTP/1.1 200 OK"
+2026-06-27 23:21:59,797 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/getUpdates "HTTP/1.1 200 OK"
+2026-06-27 23:22:09,812 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/getUpdates "HTTP/1.1 200 OK"
+2026-06-27 23:22:19,828 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/getUpdates "HTTP/1.1 200 OK"
+2026-06-27 23:22:29,847 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/getUpdates "HTTP/1.1 200 OK"
+2026-06-27 23:22:39,870 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/getUpdates "HTTP/1.1 200 OK"
+2026-06-27 23:22:49,888 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/getUpdates "HTTP/1.1 200 OK"
+2026-06-27 23:22:59,912 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/getUpdates "HTTP/1.1 200 OK"
+2026-06-27 23:23:09,933 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/getUpdates "HTTP/1.1 200 OK"
+2026-06-27 23:23:19,952 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/getUpdates "HTTP/1.1 200 OK"
+2026-06-27 23:23:29,984 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/getUpdates "HTTP/1.1 200 OK"
+2026-06-27 23:23:40,014 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/getUpdates "HTTP/1.1 200 OK"
+2026-06-27 23:23:50,033 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/getUpdates "HTTP/1.1 200 OK"
+2026-06-27 23:24:00,053 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/getUpdates "HTTP/1.1 200 OK"
+2026-06-27 23:24:10,071 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/getUpdates "HTTP/1.1 200 OK"
+2026-06-27 23:24:20,087 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/getUpdates "HTTP/1.1 200 OK"
+2026-06-27 23:24:30,103 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/getUpdates "HTTP/1.1 200 OK"
+2026-06-27 23:24:40,126 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/getUpdates "HTTP/1.1 200 OK"
+2026-06-27 23:24:50,146 | INFO | httpx | HTTP Request: POST https://api.telegram.org/bot8434153156:AAHHBJXDSXmjKjLCtyKctZStbn5gppNLing/getUpdates "HTTP/1.1 200 OK"
