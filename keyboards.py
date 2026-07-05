@@ -6,16 +6,17 @@ def main_menu_kb(hunting: bool, has_session: bool, targets: list[dict], demo_mod
         else InlineKeyboardButton("▶️ بدء الصيد", callback_data="start_hunt")
     )
     demo_btn = (
-        InlineKeyboardButton("🧪 وضع التجربة: 🟢 مُفعّل", callback_data="toggle_demo") if demo_mode
-        else InlineKeyboardButton("🧪 وضع التجربة: 🔴 مُعطّل", callback_data="toggle_demo")
+        InlineKeyboardButton("🧪 التجربة: 🟢", callback_data="toggle_demo") if demo_mode
+        else InlineKeyboardButton("🧪 التجربة: 🔴", callback_data="toggle_demo")
     )
     t_count = len(targets)
     targets_label = f"🎯 الأهداف والفلاتر ({t_count})" if t_count > 0 else "🎯 إضافة هدف شراء ⚠️"
-    account_label = "👤 ربط الحسابات المعزولة ⚙️"
+    account_label = "👤 إدارة الحسابات المتعددة ⚙️"
 
     return InlineKeyboardMarkup([
         [InlineKeyboardButton(account_label, callback_data="menu_account")],
         [InlineKeyboardButton(targets_label, callback_data="menu_targets")],
+        [InlineKeyboardButton("📢 إعدادات الإشعارات", callback_data="menu_notifications")],
         [demo_btn, hunt_btn],
         [InlineKeyboardButton("📊 إحصائيات", callback_data="menu_stats"), InlineKeyboardButton("👥 المطورون", callback_data="menu_admins")]
     ])
@@ -55,14 +56,40 @@ def target_builder_kb(draft: dict) -> InlineKeyboardMarkup:
         [InlineKeyboardButton("🗑 إلغاء", callback_data="menu_targets")]
     ])
 
-def account_kb(has_session: bool, has_creds: bool) -> InlineKeyboardMarkup:
+def account_kb(has_session: bool, pool_count: int) -> InlineKeyboardMarkup:
     rows = []
-    rows.append([InlineKeyboardButton("📱 ربط الفحص بهاتف", callback_data="login_phone_checker"), InlineKeyboardButton("📋 فحص بـ Session", callback_data="paste_session_checker")])
-    rows.append([InlineKeyboardButton("📱 ربط الشراء بهاتف", callback_data="login_phone_buyer"), InlineKeyboardButton("📋 شراء بـ Session", callback_data="paste_session_buyer")])
-    if has_session:
-        rows.append([InlineKeyboardButton("🚪 تسجيل الخروج وتصفير الجلسات", callback_data="logout_account")])
+    rows.append([InlineKeyboardButton("➕ إضافة حساب برقم هاتف", callback_data="add_account_phone")])
+    rows.append([InlineKeyboardButton("➕ إضافة حساب بـ Session", callback_data="add_account_session")])
+    if pool_count > 0:
+        rows.append([InlineKeyboardButton("🛒 تعيين حساب الشراء الأساسي", callback_data="set_buyer_menu")])
+        rows.append([InlineKeyboardButton("🔍 اختيار حسابات الفحص (تزامن)", callback_data="set_checker_menu")])
+        rows.append([InlineKeyboardButton("🗑 إزالة حساب", callback_data="remove_account_menu")])
+
+    rows.append([InlineKeyboardButton("🚪 مسح كافة الحسابات", callback_data="logout_account")])
     rows.append([InlineKeyboardButton("🔙 رجوع", callback_data="back_main")])
     return InlineKeyboardMarkup(rows)
+
+def pool_select_kb(pool: list[dict], action_prefix: str, selected_ids: list[int] = None) -> InlineKeyboardMarkup:
+    selected_ids = selected_ids or []
+    rows = []
+    for acc in pool:
+        mark = "✅ " if acc["id"] in selected_ids else ""
+        label = f"{mark}{acc.get('name', 'بدون اسم')} ({acc.get('id')})"
+        rows.append([InlineKeyboardButton(label, callback_data=f"{action_prefix}_{acc['id']}")])
+    rows.append([InlineKeyboardButton("🔙 رجوع للحسابات", callback_data="menu_account")])
+    return InlineKeyboardMarkup(rows)
+
+def notifications_kb(settings: dict) -> InlineKeyboardMarkup:
+    dev = "🟢 مُفعّل" if settings.get("notify_developer", True) else "🔴 مُعطّل"
+    chan = "🟢 مُفعّل" if settings.get("notify_channel", False) else "🔴 مُعطّل"
+    chan_id = settings.get("channel_id") or "لم يحدد ❌"
+
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton(f"👤 إشعارات المطور: {dev}", callback_data="toggle_notif_dev")],
+        [InlineKeyboardButton(f"📢 إشعارات القناة: {chan}", callback_data="toggle_notif_chan")],
+        [InlineKeyboardButton(f"🔗 قناة الإشعارات: {chan_id}", callback_data="set_notif_chan")],
+        [InlineKeyboardButton("🔙 رجوع", callback_data="back_main")]
+    ])
 
 def admins_kb(admins: list[int]) -> InlineKeyboardMarkup:
     rows = [[InlineKeyboardButton(f"❌ إزالة {uid}", callback_data=f"rm_admin_{uid}")] for uid in admins]

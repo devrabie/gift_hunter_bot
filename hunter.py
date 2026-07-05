@@ -12,9 +12,26 @@ def get_stats() -> dict: return _stats.copy()
 def set_bot(bot) -> None: global _bot_ref; _bot_ref = bot
 
 async def _send_notify(chat_id: int, text: str) -> None:
-    if _bot_ref:
-        try: await _bot_ref.send_message(chat_id=chat_id, text=text, parse_mode="Markdown")
-        except: pass
+    if not _bot_ref:
+        return
+
+    settings = storage.get_notification_settings()
+
+    # Notify Developer
+    if settings.get("notify_developer", True):
+        try:
+            await _bot_ref.send_message(chat_id=chat_id, text=text, parse_mode="Markdown")
+        except Exception as e:
+            logger.error(f"Failed to notify developer: {e}")
+
+    # Notify Channel
+    channel_id = settings.get("channel_id")
+    if channel_id and settings.get("notify_channel", False):
+        try:
+            # channel_id string to int if needed, but python-telegram-bot handles both "@channel" and int
+            await _bot_ref.send_message(chat_id=channel_id, text=text, parse_mode="Markdown")
+        except Exception as e:
+            logger.error(f"Failed to notify channel {channel_id}: {e}")
 
 def _is_match(gift: dict, target: dict) -> bool:
     """المطابقة الذكية والعميقة بين شروط الهدف والمواصفات الحية للهدية"""
@@ -78,7 +95,7 @@ async def _check_and_buy(notify_chat_id: int) -> None:
                 if result["ok"]:
                     _stats["bought"] += 1
                     _bought_ids.add(gift["id"])
-                    await _send_notify(notify_chat_id, f"✅ *تم الشراء والاقتاص الفوري بنجاح!*\n📥 `{name_display}` تم حفظها بالحساب الخاص بك.")
+                    await _send_notify(notify_chat_id, f"✅ *تم الشراء والاقتاص الفوري بنجاح!*\n📥 `{name_display}` تم حفظها في حساب الشراء.")
                 else:
                     _stats["errors"] += 1
                     await _send_notify(notify_chat_id, f"❌ *فشل القنص الفوري*\n⚠️ السبب: `{result.get('error')}`")
@@ -87,6 +104,12 @@ async def _check_and_buy(notify_chat_id: int) -> None:
 async def _hunt_loop(notify_chat_id: int) -> None:
     _stats["started_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     await user_client.initialize_all_clients()
+
+    if not storage.get_checker_accounts() or not storage.get_buyer_account():
+        await _send_notify(notify_chat_id, "⚠️ *تنبيه:* لا توجد حسابات فحص أو حساب شراء محدد. تم إيقاف المستكشف الذكي.")
+        storage.set_hunting(False)
+        return
+
     while storage.is_hunting():
         try:
             await _check_and_buy(notify_chat_id)
