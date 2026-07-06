@@ -48,8 +48,8 @@ def _is_match(gift: dict, target: dict) -> bool:
 
     # فحص سعر التون
     max_ton = target.get("max_ton")
-    if max_ton:
-        if gift["ton"] is None or gift["ton"] > max_ton:
+    if gift["ton"] is not None:
+        if max_ton is None or gift["ton"] > max_ton:
             return False
 
     # فحص رقم الإصدار (Mint Number)
@@ -89,8 +89,23 @@ async def _check_and_buy(notify_chat_id: int) -> None:
 
                 await _send_notify(notify_chat_id, f"🎯 *لقطة لقطة مطابقة للفلاتر!*\n\n🏷 الاسم: `{name_display}`\n🔢 النسخة: `#{gift['mint_number']}`\n✨ الندرة: `{gift['rarity']}‰`\n💰 السعر: {price_txt}\n\n⚡ _جاري القنص الصاعق..._")
 
-                use_ton = True if gift["stars"] is None and gift["ton"] is not None else False
-                result = await user_client.buy_gift_to_self(gift["id"], use_ton=use_ton)
+                ton_price = gift["ton"] if gift["ton"] is not None and target.get("max_ton") else None
+                stars_price = gift["stars"] if gift["stars"] is not None and (target.get("max_stars") or target.get("max_price")) else None
+
+                # إذا لم يكن هناك نجوم ولكن يوجد تون ومحقق للشرط
+                if stars_price is None and ton_price is not None:
+                    result = await user_client.buy_gift_to_self(gift["id"], ton=ton_price)
+                # إذا كانت تباع بالنجوم (أو بالنجوم والتون معاً، نعطي الأولوية للنجوم أو حسب المتوفر)
+                elif stars_price is not None:
+                    result = await user_client.buy_gift_to_self(gift["id"], stars=stars_price)
+                else:
+                    # تفادي أخطاء غير متوقعة إذا لم يتم تحديد سعر مناسب رغم المطابقة
+                    if gift["stars"]:
+                        result = await user_client.buy_gift_to_self(gift["id"], stars=gift["stars"])
+                    elif gift["ton"]:
+                         result = await user_client.buy_gift_to_self(gift["id"], ton=gift["ton"])
+                    else:
+                        result = {"ok": False, "error": "لم يتم العثور على سعر مناسب للهدية"}
                 
                 if result["ok"]:
                     _stats["bought"] += 1

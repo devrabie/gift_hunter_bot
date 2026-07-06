@@ -8,6 +8,8 @@ import time
 from pyrogram import Client
 from pyrogram.enums import GiftForResaleOrder
 from pyrogram.errors import SessionPasswordNeeded, PhoneCodeInvalid, PhoneCodeExpired
+from pyrogram.types import GiftResalePriceStar, GiftResalePriceTon
+from pyrogram import utils
 
 logger = logging.getLogger(__name__)
 
@@ -416,7 +418,7 @@ async def get_available_gifts() -> list[dict]:
         return []
 
 
-async def buy_gift_to_self(gift_id: int, gift_link: str = "", use_ton: bool = False) -> dict:
+async def buy_gift_to_self(gift_id: int, gift_link: str = "", stars: int | None = None, ton: float | None = None) -> dict:
     global _clients_pool
     import storage
 
@@ -438,12 +440,22 @@ async def buy_gift_to_self(gift_id: int, gift_link: str = "", use_ton: bool = Fa
             return {"ok": False, "error": "تعذر جلب بيانات المشتري."}
             
         link = gift_link or f"https://t.me/nft/{gift_id}"
+
+        if ton is not None:
+            price_obj = GiftResalePriceTon(toncoin_cent_count=utils.to_nano(ton))
+            use_ton_log = True
+        elif stars is not None:
+            price_obj = GiftResalePriceStar(star_count=int(stars))
+            use_ton_log = False
+        else:
+            return {"ok": False, "error": "لم يتم تحديد أي سعر للهدية."}
+
         await client.send_resold_gift(
             gift_link=link,
-            peer=me.id,
-            use_ton=use_ton
+            new_owner_chat_id=me.id,
+            price=price_obj
         )
-        logger.info("✅ حساب الشراء نفذ أمر اقتناص على الهدية رقم: %s بنجاح! (استخدام تون: %s)", gift_id, use_ton)
+        logger.info("✅ حساب الشراء نفذ أمر اقتناص على الهدية رقم: %s بنجاح! (استخدام تون: %s)", gift_id, use_ton_log)
         return {"ok": True}
     except Exception as e:
         logger.error("❌ فشل حساب الشراء في القنص: %s", e)
