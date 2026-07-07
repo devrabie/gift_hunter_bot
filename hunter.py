@@ -40,18 +40,6 @@ def _is_match(gift: dict, target: dict) -> bool:
         if search not in gift.get("base_name", "").lower() and search not in gift.get("name", "").lower():
             return False
 
-    # فحص سعر النجوم
-    max_stars = target.get("max_stars") or target.get("max_price")
-    if max_stars and max_stars > 0:
-        if gift["stars"] is None or gift["stars"] > max_stars:
-            return False
-
-    # فحص سعر التون
-    max_ton = target.get("max_ton")
-    if gift["ton"] is not None:
-        if max_ton is None or gift["ton"] > max_ton:
-            return False
-
     # فحص رقم الإصدار (Mint Number)
     max_mint = target.get("max_mint")
     if max_mint:
@@ -64,7 +52,29 @@ def _is_match(gift: dict, target: dict) -> bool:
         if gift["rarity"] > max_rarity:
             return False
 
-    return True
+    # فحص الأسعار (يجب أن يحقق شرط واحد على الأقل من الأسعار ليتم قبول المطابقة)
+    max_stars = target.get("max_stars") or target.get("max_price")
+    max_ton = target.get("max_ton")
+
+    stars_match = False
+    if max_stars and max_stars > 0:
+        if gift["stars"] is not None and gift["stars"] <= max_stars:
+            stars_match = True
+
+    ton_match = False
+    if max_ton and max_ton > 0:
+        if gift["ton"] is not None and gift["ton"] <= max_ton:
+            ton_match = True
+
+    # إذا لم يحدد المستخدم أي حدود للسعر (نادر الحدوث)، نقبلها.
+    # إذا حدد أحدهما أو كلاهما، نقبلها إذا طابقت أي منهما.
+    if not max_stars and not max_ton:
+        return True
+
+    if stars_match or ton_match:
+        return True
+
+    return False
 
 async def _check_and_buy(notify_chat_id: int) -> None:
     global _cycle; _cycle += 1
@@ -97,17 +107,16 @@ async def _check_and_buy(notify_chat_id: int) -> None:
                     await _send_notify(notify_chat_id, f"🧪 *تم القنص الوهمي بنجاح!* (وضع التجربة)\n📥 `{name_display}` لم يتم خصم أي رصيد حقيقي.")
                     break
 
-                ton_price = gift["ton"] if gift["ton"] is not None and target.get("max_ton") else None
-                stars_price = gift["stars"] if gift["stars"] is not None and (target.get("max_stars") or target.get("max_price")) else None
+                max_stars = target.get("max_stars") or target.get("max_price")
+                max_ton = target.get("max_ton")
 
-                # إذا لم يكن هناك نجوم ولكن يوجد تون ومحقق للشرط
-                if stars_price is None and ton_price is not None:
-                    result = await user_client.buy_gift_to_self(gift["id"], ton=ton_price)
-                # إذا كانت تباع بالنجوم (أو بالنجوم والتون معاً، نعطي الأولوية للنجوم أو حسب المتوفر)
-                elif stars_price is not None:
-                    result = await user_client.buy_gift_to_self(gift["id"], stars=stars_price)
+                # شراء الهدية بالعملة التي طابقت الشرط الفعلي (الأولوية للنجوم إذا طابقت كليهما)
+                if max_stars and max_stars > 0 and gift["stars"] is not None and gift["stars"] <= max_stars:
+                    result = await user_client.buy_gift_to_self(gift["id"], stars=gift["stars"])
+                elif max_ton and max_ton > 0 and gift["ton"] is not None and gift["ton"] <= max_ton:
+                    result = await user_client.buy_gift_to_self(gift["id"], ton=gift["ton"])
                 else:
-                    # تفادي أخطاء غير متوقعة إذا لم يتم تحديد سعر مناسب رغم المطابقة
+                    # كاحتياط، إذا كانت بدون شروط أو لسبب آخر
                     if gift["stars"]:
                         result = await user_client.buy_gift_to_self(gift["id"], stars=gift["stars"])
                     elif gift["ton"]:

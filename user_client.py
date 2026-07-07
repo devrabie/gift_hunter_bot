@@ -399,28 +399,21 @@ async def get_available_gifts(on_gift_found=None) -> list[dict]:
             client = active_checkers[i % len(active_checkers)]
             client_gift_lists[client.name].append((client, g_id))
 
-        # تحديد عدد الطلبات المتزامنة لكل حساب لتجنب FloodWait
-        sem_per_client = 2
-
-        async def run_client_concurrent(c_name, items):
+        # لتجنب الـ FloodWait داخل الحساب الواحد نقوم بالفحص التسلسلي للحساب مع تأخير 1.5 ثانية.
+        # سرعة الفحص ستأتي من خلال عمل الحسابات معاً كفريق.
+        async def run_client_sequential(c_name, items):
             client_results = []
-            sem = asyncio.Semaphore(sem_per_client)
-
-            async def bounded_fetch(client, g_id):
-                async with sem:
-                    return await _fetch_resale_for_gift(client, g_id, on_gift_found=on_gift_found)
-
-            tasks = [bounded_fetch(client, g_id) for client, g_id in items]
-            res_list = await asyncio.gather(*tasks, return_exceptions=True)
-            for res in res_list:
-                if isinstance(res, list):
-                    client_results.extend(res)
+            for client, g_id in items:
+                res = await _fetch_resale_for_gift(client, g_id, on_gift_found=on_gift_found)
+                client_results.extend(res)
+                # تأخير بسيط لمنع الـ FloodWait من تيليجرام
+                await asyncio.sleep(1.5)
             return client_results
 
         gather_tasks = []
         for c_name, items in client_gift_lists.items():
             if items:
-                gather_tasks.append(run_client_concurrent(c_name, items))
+                gather_tasks.append(run_client_sequential(c_name, items))
 
         # تشغيل الحسابات بشكل متزامن
         results = await asyncio.gather(*gather_tasks, return_exceptions=True)
