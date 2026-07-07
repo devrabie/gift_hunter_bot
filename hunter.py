@@ -89,6 +89,12 @@ async def _check_and_buy(notify_chat_id: int) -> None:
 
                 await _send_notify(notify_chat_id, f"🎯 *لقطة لقطة مطابقة للفلاتر!*\n\n🏷 الاسم: `{name_display}`\n🔢 النسخة: `#{gift['mint_number']}`\n✨ الندرة: `{gift['rarity']}‰`\n💰 السعر: {price_txt}\n\n⚡ _جاري القنص الصاعق..._")
 
+                if storage.is_demo_mode():
+                    _stats["bought"] += 1
+                    _bought_ids.add(gift["id"])
+                    await _send_notify(notify_chat_id, f"🧪 *تم القنص الوهمي بنجاح!* (وضع التجربة)\n📥 `{name_display}` لم يتم خصم أي رصيد حقيقي.")
+                    break
+
                 ton_price = gift["ton"] if gift["ton"] is not None and target.get("max_ton") else None
                 stars_price = gift["stars"] if gift["stars"] is not None and (target.get("max_stars") or target.get("max_price")) else None
 

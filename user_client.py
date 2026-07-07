@@ -311,8 +311,8 @@ async def _fetch_resale_for_gift(client: Client, g_id: int) -> list[dict]:
     except Exception as e:
         pass
 
-    # حماية من الحظر
-    await asyncio.sleep(2.0)
+    # إزالة التأخير الطويل لأننا نستخدم Semaphore للحماية
+    # await asyncio.sleep(2.0)
     return gifts_found
 
 async def get_available_gifts() -> list[dict]:
@@ -393,17 +393,28 @@ async def get_available_gifts() -> list[dict]:
             client = active_checkers[i % len(active_checkers)]
             client_gift_lists[client.name].append((client, g_id))
 
-        async def run_client_sequential(c_name, items):
+        # تحديد عدد الطلبات المتزامنة لكل حساب لتجنب FloodWait
+        sem_per_client = 3
+
+        async def run_client_concurrent(c_name, items):
             client_results = []
-            for client, g_id in items:
-                res = await _fetch_resale_for_gift(client, g_id)
-                client_results.extend(res)
+            sem = asyncio.Semaphore(sem_per_client)
+
+            async def bounded_fetch(client, g_id):
+                async with sem:
+                    return await _fetch_resale_for_gift(client, g_id)
+
+            tasks = [bounded_fetch(client, g_id) for client, g_id in items]
+            res_list = await asyncio.gather(*tasks, return_exceptions=True)
+            for res in res_list:
+                if isinstance(res, list):
+                    client_results.extend(res)
             return client_results
 
         gather_tasks = []
         for c_name, items in client_gift_lists.items():
             if items:
-                gather_tasks.append(run_client_sequential(c_name, items))
+                gather_tasks.append(run_client_concurrent(c_name, items))
 
         # تشغيل الحسابات بشكل متزامن
         results = await asyncio.gather(*gather_tasks, return_exceptions=True)
