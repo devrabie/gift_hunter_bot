@@ -264,7 +264,7 @@ async def close_all_clients():
 
 # ─── الفحص عبر حسابات الفحص المتزامنة ───────────────────
 
-async def _fetch_resale_for_gift(client: Client, g_id: int) -> list[dict]:
+async def _fetch_resale_for_gift(client: Client, g_id: int, on_gift_found=None) -> list[dict]:
     gifts_found = []
     try:
         async def fetch_resale_task():
@@ -298,7 +298,7 @@ async def _fetch_resale_for_gift(client: Client, g_id: int) -> list[dict]:
             logger.info("📡 اللقطة: %s | النجوم: %s ⭐ | الـ TON: %s 💎 | رقم النسخة: #%s | الندرة: %s‰",
                         full_name, stars, ton_val, mint_number, rarity_per_mille)
 
-            gifts_found.append({
+            gift_dict = {
                 "id": resale_id,
                 "stars": int(stars) if stars else None,
                 "ton": ton_val,
@@ -307,7 +307,13 @@ async def _fetch_resale_for_gift(client: Client, g_id: int) -> list[dict]:
                 "mint_number": int(mint_number),
                 "rarity": int(rarity_per_mille),
                 "link": getattr(resale_gift, "gift_address", "")
-            })
+            }
+
+            if on_gift_found:
+                # استدعاء المطابقة والشراء فوراً دون انتظار استكمال فحص باقي الهدايا
+                asyncio.create_task(on_gift_found(gift_dict))
+
+            gifts_found.append(gift_dict)
     except Exception as e:
         pass
 
@@ -315,7 +321,7 @@ async def _fetch_resale_for_gift(client: Client, g_id: int) -> list[dict]:
     # await asyncio.sleep(2.0)
     return gifts_found
 
-async def get_available_gifts() -> list[dict]:
+async def get_available_gifts(on_gift_found=None) -> list[dict]:
     global _cached_limited_gifts, _last_catalog_update, _clients_pool
     import storage
 
@@ -394,7 +400,7 @@ async def get_available_gifts() -> list[dict]:
             client_gift_lists[client.name].append((client, g_id))
 
         # تحديد عدد الطلبات المتزامنة لكل حساب لتجنب FloodWait
-        sem_per_client = 3
+        sem_per_client = 2
 
         async def run_client_concurrent(c_name, items):
             client_results = []
@@ -402,7 +408,7 @@ async def get_available_gifts() -> list[dict]:
 
             async def bounded_fetch(client, g_id):
                 async with sem:
-                    return await _fetch_resale_for_gift(client, g_id)
+                    return await _fetch_resale_for_gift(client, g_id, on_gift_found=on_gift_found)
 
             tasks = [bounded_fetch(client, g_id) for client, g_id in items]
             res_list = await asyncio.gather(*tasks, return_exceptions=True)

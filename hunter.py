@@ -71,14 +71,17 @@ async def _check_and_buy(notify_chat_id: int) -> None:
     targets = storage.get_targets()
     if not targets: return
 
-    gifts = await user_client.get_available_gifts()
-    if not gifts: return
-
-    for gift in gifts:
-        if gift["id"] in _bought_ids: continue
+    async def process_gift(gift: dict) -> None:
+        if gift["id"] in _bought_ids:
+            return
 
         for target in targets:
             if _is_match(gift, target):
+                # قفل لمنع تكرار الشراء إذا تم فحص نفس الهدية من خيوط متعددة
+                if gift["id"] in _bought_ids:
+                    break
+                _bought_ids.add(gift["id"])
+
                 _stats["found"] += 1
                 name_display = gift["name"]
                 
@@ -91,7 +94,6 @@ async def _check_and_buy(notify_chat_id: int) -> None:
 
                 if storage.is_demo_mode():
                     _stats["bought"] += 1
-                    _bought_ids.add(gift["id"])
                     await _send_notify(notify_chat_id, f"🧪 *تم القنص الوهمي بنجاح!* (وضع التجربة)\n📥 `{name_display}` لم يتم خصم أي رصيد حقيقي.")
                     break
 
@@ -115,12 +117,17 @@ async def _check_and_buy(notify_chat_id: int) -> None:
                 
                 if result["ok"]:
                     _stats["bought"] += 1
-                    _bought_ids.add(gift["id"])
                     await _send_notify(notify_chat_id, f"✅ *تم الشراء والاقتاص الفوري بنجاح!*\n📥 `{name_display}` تم حفظها في حساب الشراء.")
                 else:
                     _stats["errors"] += 1
+                    # إذا فشل الشراء نحذفها من _bought_ids لنعطي فرصة لشرائها مرة أخرى إذا ظهرت
+                    _bought_ids.discard(gift["id"])
                     await _send_notify(notify_chat_id, f"❌ *فشل القنص الفوري*\n⚠️ السبب: `{result.get('error')}`")
                 break 
+
+    # تمرير دالة الاقتناص الفوري ليتم استدعاؤها بمجرد العثور على أي هدية
+    await user_client.get_available_gifts(on_gift_found=process_gift)
+
 
 async def _hunt_loop(notify_chat_id: int) -> None:
     _stats["started_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
