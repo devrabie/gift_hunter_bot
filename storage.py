@@ -17,6 +17,14 @@ def _default() -> dict:
             "api_id": None,
             "api_hash": None,
         },
+        "pool": [],
+        "buyer_id": None,
+        "checker_ids": [],
+        "notifications": {
+            "channel_id": None,
+            "notify_developer": True,
+            "notify_channel": False
+        },
     }
 
 
@@ -29,6 +37,10 @@ def _load() -> dict:
     data.setdefault("settings", {"hunting": False})
     data.setdefault("targets", [])
     data.setdefault("account", {"session_string": None, "api_id": None, "api_hash": None})
+    data.setdefault("pool", [])
+    data.setdefault("buyer_id", None)
+    data.setdefault("checker_ids", [])
+    data.setdefault("notifications", {"channel_id": None, "notify_developer": True, "notify_channel": False})
     return data
 
 
@@ -189,3 +201,110 @@ def clear_session() -> None:
     data["account"]["session_string"] = None
     _save(data)
 
+
+# ─── Account Pool ─────────────────────────────────────────────────────────────
+
+def get_account_pool() -> list[dict]:
+    return _load().get("pool", [])
+
+def add_account_to_pool(session_string: str, acc_id: int, name: str, username: str | None = None, phone: str | None = None) -> None:
+    data = _load()
+    pool = data.setdefault("pool", [])
+
+    # Remove existing if any with same id
+    pool = [acc for acc in pool if acc.get("id") != acc_id]
+
+    pool.append({
+        "id": acc_id,
+        "session_string": session_string,
+        "name": name,
+        "username": username,
+        "phone": phone
+    })
+    data["pool"] = pool
+    _save(data)
+
+def remove_account_from_pool(acc_id: int) -> bool:
+    data = _load()
+    pool = data.get("pool", [])
+    before = len(pool)
+    data["pool"] = [acc for acc in pool if acc.get("id") != acc_id]
+
+    if data.get("buyer_id") == acc_id:
+        data["buyer_id"] = None
+
+    if "checker_ids" in data and acc_id in data["checker_ids"]:
+        data["checker_ids"].remove(acc_id)
+
+    _save(data)
+    return len(data["pool"]) < before
+
+def clear_all_accounts() -> None:
+    data = _load()
+    data["pool"] = []
+    data["buyer_id"] = None
+    data["checker_ids"] = []
+    _save(data)
+
+def get_load() -> dict:
+    return _load()
+
+def get_buyer_account() -> dict | None:
+    data = _load()
+    buyer_id = data.get("buyer_id")
+    if not buyer_id:
+        return None
+    for acc in data.get("pool", []):
+        if acc.get("id") == buyer_id:
+            return acc
+    return None
+
+def set_buyer_account(acc_id: int | None) -> None:
+    data = _load()
+    data["buyer_id"] = acc_id
+    _save(data)
+
+def get_checker_accounts() -> list[dict]:
+    data = _load()
+    checker_ids = data.get("checker_ids", [])
+    checkers = []
+    for acc in data.get("pool", []):
+        if acc.get("id") in checker_ids:
+            checkers.append(acc)
+    return checkers
+
+def toggle_checker_account(acc_id: int) -> None:
+    data = _load()
+    checker_ids = data.setdefault("checker_ids", [])
+    if acc_id in checker_ids:
+        checker_ids.remove(acc_id)
+    else:
+        checker_ids.append(acc_id)
+    data["checker_ids"] = checker_ids
+    _save(data)
+
+# ─── Notifications ────────────────────────────────────────────────────────────
+
+def get_notification_settings() -> dict:
+    return _load().get("notifications", {"channel_id": None, "notify_developer": True, "notify_channel": False})
+
+def set_notification_channel(channel_id: int | str | None) -> None:
+    data = _load()
+    notif = data.setdefault("notifications", {"channel_id": None, "notify_developer": True, "notify_channel": False})
+    notif["channel_id"] = channel_id
+    data["notifications"] = notif
+    _save(data)
+
+def toggle_notify_developer() -> None:
+    data = _load()
+    notif = data.setdefault("notifications", {"channel_id": None, "notify_developer": True, "notify_channel": False})
+    notif["notify_developer"] = not notif.get("notify_developer", True)
+    data["notifications"] = notif
+    _save(data)
+
+def toggle_notify_channel() -> None:
+    data = _load()
+    notif = data.setdefault("notifications", {"channel_id": None, "notify_developer": True, "notify_channel": False})
+    notif["notify_channel"] = not notif.get("notify_channel", False)
+    data["notifications"] = notif
+    _save(data)

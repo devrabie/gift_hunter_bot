@@ -12,7 +12,7 @@ import hunter
 import storage
 import user_client
 from config import BOT_TOKEN, DEVELOPER_ID
-from keyboards import (account_kb, admins_kb, back_main_kb, back_targets_kb, back_builder_kb, login_cancel_kb, main_menu_kb, targets_menu_kb, target_builder_kb)
+from keyboards import (account_kb, admins_kb, back_main_kb, back_targets_kb, back_builder_kb, login_cancel_kb, main_menu_kb, targets_menu_kb, target_builder_kb, pool_select_kb, notifications_kb)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(name)s | %(message)s", stream=sys.stdout)
 logger = logging.getLogger(__name__)
@@ -40,16 +40,19 @@ async def _send_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     hunting = storage.is_hunting()
     targets = storage.get_targets()
     demo_mode = storage.is_demo_mode()
-    checker_info = await user_client.get_account_status("checker")
-    buyer_info = await user_client.get_account_status("buyer")
-    has_both = bool(checker_info and buyer_info)
+
+    pool = storage.get_account_pool()
+    buyer = storage.get_buyer_account()
+    checkers = storage.get_checker_accounts()
+
+    has_both = bool(buyer and checkers)
     
     status_icon = "🟢" if hunting else "🔴"
     status_txt = "يعمل المستكشف الذكي" if hunting else "متوقف"
     if hunting and demo_mode:
         status_txt = "يعمل (وضع تجربة وهمي 🧪)"
 
-    account_txt = "✅ معزولة ومربوطة بالكامل" if has_both else "❌ غير مكتملة (يرجى ربط الحسابين)"
+    account_txt = f"🛒 شراء: {'✅' if buyer else '❌'} | 🔍 فحص: {len(checkers)}" if pool else "❌ لا يوجد حسابات مضافة"
 
     text = f"🤖 *بوت صيد الـ P2P المتقدم*\n\n{status_icon} الحالة: {status_txt}\n👤 الحسابات: {account_txt}\n🎯 الأهداف المضافة: `{len(targets)}`"
     kb = main_menu_kb(hunting, has_both, targets, demo_mode)
@@ -224,64 +227,121 @@ async def cb_menu_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         parse_mode="Markdown"
     )
 
-# ─── Account Login Handlers ───
+# ─── Account Pool Handlers ───
 @_guard
 async def cb_menu_account(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.callback_query.answer()
     uid = update.effective_user.id
     _session.pop(uid, None)
 
-    checker_info = await user_client.get_account_status("checker")
-    buyer_info = await user_client.get_account_status("buyer")
+    pool = storage.get_account_pool()
+    buyer = storage.get_buyer_account()
+    checkers = storage.get_checker_accounts()
 
-    has_any = bool(checker_info or buyer_info)
-    has_both = bool(checker_info and buyer_info)
-
-    def format_acc(info, title):
+    def format_acc(info):
         if info:
             uname = f" (@{info['username']})" if info.get("username") else ""
-            return f"✅ {title}: *{info['name']}*{uname}"
-        return f"❌ {title}: غير مربوط"
+            return f"{info['name']}{uname}"
+        return "غير مربوط"
 
-    c_str = format_acc(checker_info, "حساب الفحص (Checker)")
-    b_str = format_acc(buyer_info, "حساب الشراء الأساسي (Buyer)")
+    b_str = format_acc(buyer)
+    c_str = "\n".join([f" - {format_acc(c)}" for c in checkers]) if checkers else "لا يوجد"
 
-    guide = "\n_يرجى ربط كلا الحسابين ليعمل البوت بشكل صحيح._" if not has_both else ""
+    text = (f"👤 *إدارة الحسابات المتعددة*\n\n"
+            f"مجموع الحسابات المضافة: {len(pool)}\n\n"
+            f"🛒 *حساب الشراء:* {b_str}\n"
+            f"🔍 *حسابات الفحص ({len(checkers)}):*\n{c_str}")
 
     await update.callback_query.edit_message_text(
-        f"👤 *إدارة الحسابات المعزولة*\n\n{c_str}\n{b_str}\n{guide}",
-        reply_markup=account_kb(has_any, True), parse_mode="Markdown"
+        text, reply_markup=account_kb(bool(pool), len(pool)), parse_mode="Markdown"
     )
 
 @_guard
-async def cb_login_phone_checker(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def cb_add_account_phone(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.callback_query.answer()
-    _session[update.effective_user.id] = {"awaiting_phone": True, "type": "checker"}
-    await update.callback_query.edit_message_text("📱 *ربط حساب الفحص (Checker)*\n\nأرسل رقم الهاتف (مثال: `+967771234567`):", reply_markup=login_cancel_kb(), parse_mode="Markdown")
+    _session[update.effective_user.id] = {"awaiting_phone": True}
+    await update.callback_query.edit_message_text("📱 *إضافة حساب جديد*\n\nأرسل رقم الهاتف (مثال: `+967771234567`):", reply_markup=login_cancel_kb(), parse_mode="Markdown")
 
 @_guard
-async def cb_login_phone_buyer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def cb_add_account_session(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.callback_query.answer()
-    _session[update.effective_user.id] = {"awaiting_phone": True, "type": "buyer"}
-    await update.callback_query.edit_message_text("📱 *ربط حساب الشراء (Buyer)*\n\nأرسل رقم الهاتف (مثال: `+967777654321`):", reply_markup=login_cancel_kb(), parse_mode="Markdown")
+    _session[update.effective_user.id] = {"awaiting_session_string": True}
+    await update.callback_query.edit_message_text("📋 *إضافة حساب جديد*\n\nأرسل الـ Pyrogram session string:", reply_markup=login_cancel_kb(), parse_mode="Markdown")
 
 @_guard
-async def cb_paste_session_checker(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def cb_set_buyer_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.callback_query.answer()
-    _session[update.effective_user.id] = {"awaiting_session_string": True, "type": "checker"}
-    await update.callback_query.edit_message_text("📋 *لصق الجلسة لحساب الفحص (Checker)*\n\nأرسل الـ Pyrogram session string:", reply_markup=login_cancel_kb(), parse_mode="Markdown")
+    pool = storage.get_account_pool()
+    buyer = storage.get_buyer_account()
+    selected = [buyer["id"]] if buyer else []
+    await update.callback_query.edit_message_text("🛒 *اختر حساب الشراء الأساسي:*", reply_markup=pool_select_kb(pool, "set_buyer", selected), parse_mode="Markdown")
 
 @_guard
-async def cb_paste_session_buyer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def cb_set_buyer_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.callback_query.answer()
-    _session[update.effective_user.id] = {"awaiting_session_string": True, "type": "buyer"}
-    await update.callback_query.edit_message_text("📋 *لصق الجلسة لحساب الشراء (Buyer)*\n\nأرسل الـ Pyrogram session string:", reply_markup=login_cancel_kb(), parse_mode="Markdown")
+    acc_id = int(update.callback_query.data.replace("set_buyer_", ""))
+    storage.set_buyer_account(acc_id)
+    await cb_menu_account(update, context)
+
+@_guard
+async def cb_set_checker_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await update.callback_query.answer()
+    pool = storage.get_account_pool()
+    checkers = storage.get_checker_accounts()
+    selected = [c["id"] for c in checkers]
+    await update.callback_query.edit_message_text("🔍 *اختر حسابات الفحص (تحديد متعدد):*", reply_markup=pool_select_kb(pool, "toggle_checker", selected), parse_mode="Markdown")
+
+@_guard
+async def cb_toggle_checker_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await update.callback_query.answer()
+    acc_id = int(update.callback_query.data.replace("toggle_checker_", ""))
+    storage.toggle_checker_account(acc_id)
+    await cb_set_checker_menu(update, context)
+
+@_guard
+async def cb_remove_account_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await update.callback_query.answer()
+    pool = storage.get_account_pool()
+    await update.callback_query.edit_message_text("🗑 *اختر حساباً لإزالته:*", reply_markup=pool_select_kb(pool, "remove_acc"), parse_mode="Markdown")
+
+@_guard
+async def cb_remove_account_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await update.callback_query.answer()
+    acc_id = int(update.callback_query.data.replace("remove_acc_", ""))
+    storage.remove_account_from_pool(acc_id)
+    await cb_menu_account(update, context)
 
 @_guard
 async def cb_logout_account(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.callback_query.answer()
     await user_client.logout()
-    await update.callback_query.edit_message_text("🚪 *تم تسجيل الخروج وتصفير الجلسات بنجاح.*", reply_markup=back_main_kb(), parse_mode="Markdown")
+    await update.callback_query.edit_message_text("🚪 *تم مسح كافة الحسابات وتصفير الجلسات بنجاح.*", reply_markup=back_main_kb(), parse_mode="Markdown")
+
+# ─── Notifications Handlers ───
+@_guard
+async def cb_menu_notifications(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await update.callback_query.answer()
+    settings = storage.get_notification_settings()
+    text = "📢 *إعدادات الإشعارات*\n\nحدد أين تريد استلام إشعارات الصيد والاقتناص:"
+    await update.callback_query.edit_message_text(text, reply_markup=notifications_kb(settings), parse_mode="Markdown")
+
+@_guard
+async def cb_toggle_notif_dev(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await update.callback_query.answer()
+    storage.toggle_notify_developer()
+    await cb_menu_notifications(update, context)
+
+@_guard
+async def cb_toggle_notif_chan(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await update.callback_query.answer()
+    storage.toggle_notify_channel()
+    await cb_menu_notifications(update, context)
+
+@_guard
+async def cb_set_notif_chan(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await update.callback_query.answer()
+    _session[update.effective_user.id] = {"awaiting_notif_chan": True}
+    await update.callback_query.edit_message_text("🔗 *إعداد قناة الإشعارات*\n\nأرسل معرف القناة (مثال: `@my_channel`) أو الـ ID الخاص بها. (تأكد أن البوت مشرف فيها):", reply_markup=back_main_kb(), parse_mode="Markdown")
 
 
 # ─── Admins Handlers ───
@@ -333,28 +393,26 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         return
         
     if sess.get("awaiting_phone"):
-        client_type = sess.get("type", "checker")
         clean_phone = text.strip().replace(" ", "")
         msg = await update.effective_message.reply_text("📲 جاري الاتصال وتوليد الرمز...")
-        result = await user_client.start_phone_login(uid, clean_phone, client_type=client_type)
+        result = await user_client.start_phone_login(uid, clean_phone)
         if result["ok"]:
-            _session[uid] = {"awaiting_code": True, "type": client_type}
-            await msg.edit_text(f"📲 *تم الإرسال لحساب {client_type.upper()}!*\n\nأرسل رمز التحقق (5 أرقام):", reply_markup=login_cancel_kb(), parse_mode="Markdown")
+            _session[uid] = {"awaiting_code": True}
+            await msg.edit_text(f"📲 *تم إرسال الرمز!*\n\nأرسل رمز التحقق:", reply_markup=login_cancel_kb(), parse_mode="Markdown")
         else:
             _session.pop(uid, None)
             await msg.edit_text(f"❌ *فشل:* `{result['error']}`", reply_markup=back_main_kb(), parse_mode="Markdown")
         return
 
     if sess.get("awaiting_code"):
-        client_type = sess.get("type", "checker")
         msg_code = text.strip().replace(" ", "").replace("-", "")
         msg = await update.effective_message.reply_text("⏳ جاري فحص الرمز...")
         result = await user_client.complete_phone_login(uid, msg_code)
         if result["ok"]:
             _session.pop(uid, None)
-            await msg.edit_text(f"✅ *تم تأمين حساب {client_type.upper()}!*\n👤 `{result.get('name')}`", reply_markup=back_main_kb(), parse_mode="Markdown")
+            await msg.edit_text(f"✅ *تم إضافة الحساب!*\n👤 `{result.get('name')}`", reply_markup=back_main_kb(), parse_mode="Markdown")
         elif result.get("need_password"):
-            _session[uid] = {"awaiting_2fa": True, "type": client_type}
+            _session[uid] = {"awaiting_2fa": True}
             await msg.edit_text("🔐 *الحساب محمي (2FA)*\n\nأرسل كلمة المرور:", reply_markup=login_cancel_kb(), parse_mode="Markdown")
         else:
             _session.pop(uid, None)
@@ -362,25 +420,29 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         return
 
     if sess.get("awaiting_2fa"):
-        client_type = sess.get("type", "checker")
         msg = await update.effective_message.reply_text("🔐 جاري التحقق...")
         _session.pop(uid, None)
         result = await user_client.complete_2fa(uid, text.strip())
         if result["ok"]:
-            await msg.edit_text(f"✅ *تم ربط حساب {client_type.upper()} بنجاح!*", reply_markup=back_main_kb(), parse_mode="Markdown")
+            await msg.edit_text(f"✅ *تم ربط الحساب بنجاح!*", reply_markup=back_main_kb(), parse_mode="Markdown")
         else:
             await msg.edit_text(f"❌ *فشل التحقق:* `{result.get('error', 'خطأ')}`", reply_markup=back_main_kb(), parse_mode="Markdown")
         return
 
     if sess.get("awaiting_session_string"):
-        client_type = sess.get("type", "checker")
         _session.pop(uid, None)
-        msg = await update.effective_message.reply_text("🔄 جاري تثبيت الجلسة المعزولة...")
-        result = await user_client.set_session_directly(uid, text.strip(), client_type=client_type)
+        msg = await update.effective_message.reply_text("🔄 جاري فحص الجلسة...")
+        result = await user_client.set_session_directly(uid, text.strip())
         if result["ok"]:
-            await msg.edit_text(f"✅ *تم ربط الجلسة بنجاح!*\n👤 الحساب: `{result.get('name')}`", reply_markup=back_main_kb(), parse_mode="Markdown")
+            await msg.edit_text(f"✅ *تم إضافة الحساب بنجاح!*\n👤 `{result.get('name')}`", reply_markup=back_main_kb(), parse_mode="Markdown")
         else:
             await msg.edit_text(f"❌ *فشل:* `{result['error']}`", reply_markup=back_main_kb(), parse_mode="Markdown")
+        return
+
+    if sess.get("awaiting_notif_chan"):
+        _session.pop(uid, None)
+        storage.set_notification_channel(text.strip())
+        await update.effective_message.reply_text(f"✅ تم حفظ القناة: {text.strip()}", reply_markup=back_main_kb(), parse_mode="Markdown")
         return
 
     if sess.get("awaiting_new_admin"):
@@ -420,12 +482,21 @@ def main() -> None:
     
     app.add_handler(CallbackQueryHandler(cb_menu_stats, pattern="^menu_stats$"))
     app.add_handler(CallbackQueryHandler(cb_menu_account, pattern="^menu_account$"))
-    app.add_handler(CallbackQueryHandler(cb_login_phone_checker, pattern="^login_phone_checker$"))
-    app.add_handler(CallbackQueryHandler(cb_login_phone_buyer, pattern="^login_phone_buyer$"))
-    app.add_handler(CallbackQueryHandler(cb_paste_session_checker, pattern="^paste_session_checker$"))
-    app.add_handler(CallbackQueryHandler(cb_paste_session_buyer, pattern="^paste_session_buyer$"))
+    app.add_handler(CallbackQueryHandler(cb_add_account_phone, pattern="^add_account_phone$"))
+    app.add_handler(CallbackQueryHandler(cb_add_account_session, pattern="^add_account_session$"))
+    app.add_handler(CallbackQueryHandler(cb_set_buyer_menu, pattern="^set_buyer_menu$"))
+    app.add_handler(CallbackQueryHandler(cb_set_buyer_action, pattern="^set_buyer_"))
+    app.add_handler(CallbackQueryHandler(cb_set_checker_menu, pattern="^set_checker_menu$"))
+    app.add_handler(CallbackQueryHandler(cb_toggle_checker_action, pattern="^toggle_checker_"))
+    app.add_handler(CallbackQueryHandler(cb_remove_account_menu, pattern="^remove_account_menu$"))
+    app.add_handler(CallbackQueryHandler(cb_remove_account_action, pattern="^remove_acc_"))
     app.add_handler(CallbackQueryHandler(cb_logout_account, pattern="^logout_account$"))
     
+    app.add_handler(CallbackQueryHandler(cb_menu_notifications, pattern="^menu_notifications$"))
+    app.add_handler(CallbackQueryHandler(cb_toggle_notif_dev, pattern="^toggle_notif_dev$"))
+    app.add_handler(CallbackQueryHandler(cb_toggle_notif_chan, pattern="^toggle_notif_chan$"))
+    app.add_handler(CallbackQueryHandler(cb_set_notif_chan, pattern="^set_notif_chan$"))
+
     app.add_handler(CallbackQueryHandler(cb_menu_admins, pattern="^menu_admins$"))
     app.add_handler(CallbackQueryHandler(cb_add_admin_btn, pattern="^add_admin$"))
     app.add_handler(CallbackQueryHandler(cb_rm_admin, pattern="^rm_admin_"))
