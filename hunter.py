@@ -125,17 +125,20 @@ async def _check_and_buy(notify_chat_id: int) -> None:
                 max_stars = target.get("max_stars") or target.get("max_price")
                 max_ton = target.get("max_ton")
 
+                # يجب تمرير الرابط الصحيح (Slug) ليتجنب خطأ STARGIFT_SLUG_INVALID
+                link = gift.get("link") or f"https://t.me/nft/{gift['name']}"
+
                 # شراء الهدية بالعملة التي طابقت الشرط الفعلي (الأولوية للنجوم إذا طابقت كليهما)
                 if max_stars and max_stars > 0 and gift["stars"] is not None and gift["stars"] <= max_stars:
-                    result = await user_client.buy_gift_to_self(gift["id"], stars=gift["stars"])
+                    result = await user_client.buy_gift_to_self(gift["id"], gift_link=link, stars=gift["stars"])
                 elif max_ton and max_ton > 0 and gift["ton"] is not None and gift["ton"] <= max_ton:
-                    result = await user_client.buy_gift_to_self(gift["id"], ton=gift["ton"])
+                    result = await user_client.buy_gift_to_self(gift["id"], gift_link=link, ton=gift["ton"])
                 else:
                     # كاحتياط، إذا كانت بدون شروط أو لسبب آخر
                     if gift["stars"]:
-                        result = await user_client.buy_gift_to_self(gift["id"], stars=gift["stars"])
+                        result = await user_client.buy_gift_to_self(gift["id"], gift_link=link, stars=gift["stars"])
                     elif gift["ton"]:
-                         result = await user_client.buy_gift_to_self(gift["id"], ton=gift["ton"])
+                         result = await user_client.buy_gift_to_self(gift["id"], gift_link=link, ton=gift["ton"])
                     else:
                         result = {"ok": False, "error": "لم يتم العثور على سعر مناسب للهدية"}
                 
