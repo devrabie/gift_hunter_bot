@@ -26,6 +26,7 @@ _pending: dict[int, dict] = {}
 
 # متغيرات لحفظ الكتالوج في الذاكرة وعدم طلبه بشكل متكرر وتجنب الـ FloodWait
 _cached_limited_gifts = []
+_cached_limited_gifts_names = []  # To store the slugs/names for the menu
 _last_catalog_update = 0
 
 
@@ -321,8 +322,16 @@ async def _fetch_resale_for_gift(client: Client, g_id: int, on_gift_found=None) 
     # await asyncio.sleep(2.0)
     return gifts_found
 
+async def get_catalog_names() -> list[dict]:
+    """تُرجع قائمة بأسماء الهدايا المتاحة في الكتالوج للاستخدام في قائمة الإعدادات"""
+    global _cached_limited_gifts_names
+    if not _cached_limited_gifts_names:
+        # إذا لم يكن الكتالوج محملاً، نطلب تشغيل الفحص لمرة واحدة لجلبه
+        await get_available_gifts(on_gift_found=lambda x: x)
+    return _cached_limited_gifts_names
+
 async def get_available_gifts(on_gift_found=None) -> list[dict]:
-    global _cached_limited_gifts, _last_catalog_update, _clients_pool
+    global _cached_limited_gifts, _cached_limited_gifts_names, _last_catalog_update, _clients_pool
     import storage
 
     checker_accs = storage.get_checker_accounts()
@@ -373,14 +382,18 @@ async def get_available_gifts(on_gift_found=None) -> list[dict]:
                 return []
 
             new_limited = []
+            new_limited_names = []
             for g in catalog_gifts:
                 is_limited = getattr(g, "is_limited", False) or getattr(g, "limited", False)
                 g_id = getattr(g, "id", None)
+                slug = getattr(g, "slug", str(g_id))
                 if is_limited and g_id is not None:
                     new_limited.append(g_id)
+                    new_limited_names.append({"id": g_id, "slug": slug})
             
             if new_limited:
                 _cached_limited_gifts = new_limited
+                _cached_limited_gifts_names = new_limited_names
                 _last_catalog_update = current_time
                 logger.info("✅ تم تخزين %d هدية محدودة في الذاكرة لفحصها.", len(_cached_limited_gifts))
 

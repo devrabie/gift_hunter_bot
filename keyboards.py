@@ -41,6 +41,32 @@ def targets_menu_kb(targets: list[dict]) -> InlineKeyboardMarkup:
     rows.append([InlineKeyboardButton("🔙 القائمة الرئيسية", callback_data="back_main")])
     return InlineKeyboardMarkup(rows)
 
+def catalog_gifts_kb(gifts: list[dict], page: int = 0) -> InlineKeyboardMarkup:
+    """كيبورد يعرض الهدايا المتاحة في الكتالوج لاختيار واحدة منها"""
+    rows = []
+    items_per_page = 10
+    total_pages = (len(gifts) + items_per_page - 1) // items_per_page
+    start_idx = page * items_per_page
+    end_idx = start_idx + items_per_page
+
+    for gift in gifts[start_idx:end_idx]:
+        # نستخدم slug للاسم
+        slug = gift.get("slug", str(gift.get("id")))
+        rows.append([InlineKeyboardButton(slug, callback_data=f"sel_gift_{slug}")])
+
+    # أزرار التنقل بين الصفحات
+    nav_row = []
+    if page > 0:
+        nav_row.append(InlineKeyboardButton("⬅️ السابق", callback_data=f"cat_page_{page-1}"))
+    if page < total_pages - 1:
+        nav_row.append(InlineKeyboardButton("التالي ➡️", callback_data=f"cat_page_{page+1}"))
+
+    if nav_row:
+        rows.append(nav_row)
+
+    rows.append([InlineKeyboardButton("🔙 رجوع", callback_data="menu_targets")])
+    return InlineKeyboardMarkup(rows)
+
 def target_builder_kb(draft: dict) -> InlineKeyboardMarkup:
     stars = f"{draft.get('max_stars')} ⭐" if draft.get('max_stars') else "لم يحدد ❌"
     ton = f"{draft.get('max_ton')} 💎" if draft.get('max_ton') else "لم يحدد ❌"

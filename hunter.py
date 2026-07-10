@@ -17,21 +17,31 @@ async def _send_notify(chat_id: int, text: str) -> None:
 
     settings = storage.get_notification_settings()
 
+    async def robust_send(tgt_chat, is_channel=False):
+        for attempt in range(3):
+            try:
+                await _bot_ref.send_message(chat_id=tgt_chat, text=text, parse_mode="Markdown")
+                break
+            except Exception as e:
+                err_msg = str(e).lower()
+                if "flood control exceeded" in err_msg or "retry in" in err_msg or "429" in err_msg:
+                    import re
+                    match = re.search(r'retry in (\d+)', err_msg)
+                    wait_time = int(match.group(1)) + 1 if match else 3
+                    logger.warning(f"FloodWait on sendMessage to {tgt_chat}. Waiting {wait_time}s.")
+                    await asyncio.sleep(wait_time)
+                else:
+                    logger.error(f"Failed to notify {'channel' if is_channel else 'developer'} {tgt_chat}: {e}")
+                    break
+
     # Notify Developer
     if settings.get("notify_developer", True):
-        try:
-            await _bot_ref.send_message(chat_id=chat_id, text=text, parse_mode="Markdown")
-        except Exception as e:
-            logger.error(f"Failed to notify developer: {e}")
+        await robust_send(chat_id)
 
     # Notify Channel
     channel_id = settings.get("channel_id")
     if channel_id and settings.get("notify_channel", False):
-        try:
-            # channel_id string to int if needed, but python-telegram-bot handles both "@channel" and int
-            await _bot_ref.send_message(chat_id=channel_id, text=text, parse_mode="Markdown")
-        except Exception as e:
-            logger.error(f"Failed to notify channel {channel_id}: {e}")
+        await robust_send(channel_id, is_channel=True)
 
 def _is_match(gift: dict, target: dict) -> bool:
     """المطابقة الذكية والعميقة بين شروط الهدف والمواصفات الحية للهدية"""
@@ -76,12 +86,15 @@ def _is_match(gift: dict, target: dict) -> bool:
 
     return False
 
+_demo_notified_cycle = -1
+
 async def _check_and_buy(notify_chat_id: int) -> None:
-    global _cycle; _cycle += 1
+    global _cycle, _demo_notified_cycle; _cycle += 1
     targets = storage.get_targets()
     if not targets: return
 
     async def process_gift(gift: dict) -> None:
+        global _demo_notified_cycle
         if gift["id"] in _bought_ids:
             return
 
@@ -100,11 +113,13 @@ async def _check_and_buy(notify_chat_id: int) -> None:
                 if gift["ton"]: prices.append(f"`{gift['ton']}` 💎")
                 price_txt = " أو ".join(prices)
 
-                await _send_notify(notify_chat_id, f"🎯 *لقطة لقطة مطابقة للفلاتر!*\n\n🏷 الاسم: `{name_display}`\n🔢 النسخة: `#{gift['mint_number']}`\n✨ الندرة: `{gift['rarity']}‰`\n💰 السعر: {price_txt}\n\n⚡ _جاري القنص الصاعق..._")
+                # إزالة إشعار "لقطة مطابقة" لتخفيف الضغط على سيرفر البوت (FloodWait)
 
                 if storage.is_demo_mode():
                     _stats["bought"] += 1
-                    await _send_notify(notify_chat_id, f"🧪 *تم القنص الوهمي بنجاح!* (وضع التجربة)\n📥 `{name_display}` لم يتم خصم أي رصيد حقيقي.")
+                    if _demo_notified_cycle != _cycle:
+                        await _send_notify(notify_chat_id, f"🧪 *تم القنص الوهمي بنجاح!* (وضع التجربة)\n📥 `{name_display}` لم يتم خصم أي رصيد حقيقي.\n_ملاحظة: سيتم إخفاء باقي إشعارات الوهمي لهذه الدورة لتجنب الإزعاج._")
+                        _demo_notified_cycle = _cycle
                     break
 
                 max_stars = target.get("max_stars") or target.get("max_price")

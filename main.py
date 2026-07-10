@@ -12,7 +12,7 @@ import hunter
 import storage
 import user_client
 from config import BOT_TOKEN, DEVELOPER_ID
-from keyboards import (account_kb, admins_kb, back_main_kb, back_targets_kb, back_builder_kb, login_cancel_kb, main_menu_kb, targets_menu_kb, target_builder_kb, pool_select_kb, notifications_kb)
+from keyboards import (account_kb, admins_kb, back_main_kb, back_targets_kb, back_builder_kb, login_cancel_kb, main_menu_kb, targets_menu_kb, target_builder_kb, pool_select_kb, notifications_kb, catalog_gifts_kb)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(name)s | %(message)s", stream=sys.stdout)
 logger = logging.getLogger(__name__)
@@ -100,10 +100,42 @@ async def cb_add_target_any(update: Update, context: ContextTypes.DEFAULT_TYPE) 
 
 @_guard
 async def cb_add_target_named(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await update.callback_query.answer()
+    q = update.callback_query
+    await q.answer("جاري جلب الكتالوج...")
+
+    # محاولة استدعاء الدالة لجلب الأسماء، وإذا فشلت نستخدم الطريقة اليدوية كخيار بديل
+    try:
+        import user_client
+        gifts = await user_client.get_catalog_names()
+        if not gifts:
+            raise ValueError("كتالوج الهدايا فارغ")
+
+        uid = update.effective_user.id
+        _session[uid] = {"catalog_gifts": gifts}
+        await q.edit_message_text("🔍 *اختر اسم الهدية من الكتالوج الحالي:*", reply_markup=catalog_gifts_kb(gifts, 0), parse_mode="Markdown")
+    except Exception as e:
+        uid = update.effective_user.id
+        _session[uid] = {"awaiting_draft_name": True}
+        await q.edit_message_text("⚠️ تعذر جلب الكتالوج.\n🔍 *أرسل اسم الهدية بالضبط (مثال: PoolFloat):*", reply_markup=back_targets_kb(), parse_mode="Markdown")
+
+@_guard
+async def cb_cat_page(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    q = update.callback_query
+    await q.answer()
+    page = int(q.data.replace("cat_page_", ""))
     uid = update.effective_user.id
-    _session[uid] = {"awaiting_draft_name": True}
-    await update.callback_query.edit_message_text("🔍 *أرسل اسم الهدية بالضبط (مثال: PoolFloat):*", reply_markup=back_targets_kb(), parse_mode="Markdown")
+    gifts = _session.get(uid, {}).get("catalog_gifts", [])
+    if gifts:
+        await q.edit_message_text("🔍 *اختر اسم الهدية من الكتالوج الحالي:*", reply_markup=catalog_gifts_kb(gifts, page), parse_mode="Markdown")
+
+@_guard
+async def cb_sel_gift(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    q = update.callback_query
+    await q.answer()
+    slug = q.data.replace("sel_gift_", "")
+    uid = update.effective_user.id
+    _session[uid] = {"draft": {"id": str(uuid.uuid4())[:8], "type": "named", "name": slug}}
+    await cb_tb_show_builder(update, context)
 
 
 @_guard
@@ -468,6 +500,8 @@ def main() -> None:
     app.add_handler(CallbackQueryHandler(cb_menu_targets, pattern="^menu_targets$"))
     app.add_handler(CallbackQueryHandler(cb_add_target_any, pattern="^add_target_any$"))
     app.add_handler(CallbackQueryHandler(cb_add_target_named, pattern="^add_target_named$"))
+    app.add_handler(CallbackQueryHandler(cb_cat_page, pattern="^cat_page_"))
+    app.add_handler(CallbackQueryHandler(cb_sel_gift, pattern="^sel_gift_"))
     app.add_handler(CallbackQueryHandler(cb_del_target, pattern="^del_target_"))
     
     app.add_handler(CallbackQueryHandler(cb_tb_show_builder, pattern="^tb_show_builder$"))
