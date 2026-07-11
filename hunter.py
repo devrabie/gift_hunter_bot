@@ -128,23 +128,37 @@ async def _check_and_buy(notify_chat_id: int) -> None:
                 # يجب تمرير الرابط الصحيح (Slug) ليتجنب خطأ STARGIFT_SLUG_INVALID
                 link = gift.get("link") or f"https://t.me/nft/{gift['name']}"
 
+                bought_price = ""
                 # شراء الهدية بالعملة التي طابقت الشرط الفعلي (الأولوية للنجوم إذا طابقت كليهما)
                 if max_stars and max_stars > 0 and gift["stars"] is not None and gift["stars"] <= max_stars:
                     result = await user_client.buy_gift_to_self(gift["id"], gift_link=link, stars=gift["stars"])
+                    bought_price = f"`{gift['stars']:,}` ⭐"
                 elif max_ton and max_ton > 0 and gift["ton"] is not None and gift["ton"] <= max_ton:
                     result = await user_client.buy_gift_to_self(gift["id"], gift_link=link, ton=gift["ton"])
+                    bought_price = f"`{gift['ton']}` 💎"
                 else:
                     # كاحتياط، إذا كانت بدون شروط أو لسبب آخر
                     if gift["stars"]:
                         result = await user_client.buy_gift_to_self(gift["id"], gift_link=link, stars=gift["stars"])
+                        bought_price = f"`{gift['stars']:,}` ⭐"
                     elif gift["ton"]:
                          result = await user_client.buy_gift_to_self(gift["id"], gift_link=link, ton=gift["ton"])
+                         bought_price = f"`{gift['ton']}` 💎"
                     else:
                         result = {"ok": False, "error": "لم يتم العثور على سعر مناسب للهدية"}
                 
                 if result["ok"]:
                     _stats["bought"] += 1
-                    await _send_notify(notify_chat_id, f"✅ *تم الشراء والاقتاص الفوري بنجاح!*\n📥 `{name_display}` تم حفظها في حساب الشراء.")
+                    success_msg = (
+                        f"✅ *تم الشراء والاقتاص الفوري بنجاح!*\n"
+                        f"📥 الهدية: `{name_display}`\n"
+                        f"🔗 الرابط: {link}\n"
+                        f"💰 تم الشراء بسعر: {bought_price}\n"
+                        f"✨ الندرة: `{gift['rarity']}‰`\n"
+                        f"🔢 النسخة: `#{gift['mint_number']}`\n"
+                        f"_تم حفظ الهدية في حساب الشراء._"
+                    )
+                    await _send_notify(notify_chat_id, success_msg)
                 else:
                     _stats["errors"] += 1
                     # إذا فشل الشراء نحذفها من _bought_ids لنعطي فرصة لشرائها مرة أخرى إذا ظهرت
