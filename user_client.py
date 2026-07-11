@@ -8,6 +8,8 @@ import time
 from pyrogram import Client
 from pyrogram.enums import GiftForResaleOrder
 from pyrogram.errors import SessionPasswordNeeded, PhoneCodeInvalid, PhoneCodeExpired
+from pyrogram.types import GiftResalePriceStar, GiftResalePriceTon
+from pyrogram import utils
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +26,7 @@ _pending: dict[int, dict] = {}
 
 # متغيرات لحفظ الكتالوج في الذاكرة وعدم طلبه بشكل متكرر وتجنب الـ FloodWait
 _cached_limited_gifts = []
+_cached_limited_gifts_names = []  # To store the slugs/names for the menu
 _last_catalog_update = 0
 
 
@@ -262,7 +265,7 @@ async def close_all_clients():
 
 # ─── الفحص عبر حسابات الفحص المتزامنة ───────────────────
 
-async def _fetch_resale_for_gift(client: Client, g_id: int) -> list[dict]:
+async def _fetch_resale_for_gift(client: Client, g_id: int, on_gift_found=None) -> list[dict]:
     gifts_found = []
     try:
         async def fetch_resale_task():
@@ -296,7 +299,7 @@ async def _fetch_resale_for_gift(client: Client, g_id: int) -> list[dict]:
             logger.info("📡 اللقطة: %s | النجوم: %s ⭐ | الـ TON: %s 💎 | رقم النسخة: #%s | الندرة: %s‰",
                         full_name, stars, ton_val, mint_number, rarity_per_mille)
 
-            gifts_found.append({
+            gift_dict = {
                 "id": resale_id,
                 "stars": int(stars) if stars else None,
                 "ton": ton_val,
@@ -305,16 +308,30 @@ async def _fetch_resale_for_gift(client: Client, g_id: int) -> list[dict]:
                 "mint_number": int(mint_number),
                 "rarity": int(rarity_per_mille),
                 "link": getattr(resale_gift, "gift_address", "")
-            })
+            }
+
+            if on_gift_found:
+                # استدعاء المطابقة والشراء فوراً دون انتظار استكمال فحص باقي الهدايا
+                asyncio.create_task(on_gift_found(gift_dict))
+
+            gifts_found.append(gift_dict)
     except Exception as e:
         pass
 
-    # حماية من الحظر
-    await asyncio.sleep(2.0)
+    # إزالة التأخير الطويل لأننا نستخدم Semaphore للحماية
+    # await asyncio.sleep(2.0)
     return gifts_found
 
-async def get_available_gifts() -> list[dict]:
-    global _cached_limited_gifts, _last_catalog_update, _clients_pool
+async def get_catalog_names() -> list[dict]:
+    """تُرجع قائمة بأسماء الهدايا المتاحة في الكتالوج للاستخدام في قائمة الإعدادات"""
+    global _cached_limited_gifts_names
+    if not _cached_limited_gifts_names:
+        # إذا لم يكن الكتالوج محملاً، نطلب تشغيل الفحص لمرة واحدة لجلبه
+        await get_available_gifts(on_gift_found=lambda x: x)
+    return _cached_limited_gifts_names
+
+async def get_available_gifts(on_gift_found=None) -> list[dict]:
+    global _cached_limited_gifts, _cached_limited_gifts_names, _last_catalog_update, _clients_pool
     import storage
 
     checker_accs = storage.get_checker_accounts()
@@ -365,14 +382,18 @@ async def get_available_gifts() -> list[dict]:
                 return []
 
             new_limited = []
+            new_limited_names = []
             for g in catalog_gifts:
                 is_limited = getattr(g, "is_limited", False) or getattr(g, "limited", False)
                 g_id = getattr(g, "id", None)
+                slug = getattr(g, "slug", str(g_id))
                 if is_limited and g_id is not None:
                     new_limited.append(g_id)
+                    new_limited_names.append({"id": g_id, "slug": slug})
             
             if new_limited:
                 _cached_limited_gifts = new_limited
+                _cached_limited_gifts_names = new_limited_names
                 _last_catalog_update = current_time
                 logger.info("✅ تم تخزين %d هدية محدودة في الذاكرة لفحصها.", len(_cached_limited_gifts))
 
@@ -391,11 +412,15 @@ async def get_available_gifts() -> list[dict]:
             client = active_checkers[i % len(active_checkers)]
             client_gift_lists[client.name].append((client, g_id))
 
+        # لتجنب الـ FloodWait داخل الحساب الواحد نقوم بالفحص التسلسلي للحساب مع تأخير 1.5 ثانية.
+        # سرعة الفحص ستأتي من خلال عمل الحسابات معاً كفريق.
         async def run_client_sequential(c_name, items):
             client_results = []
             for client, g_id in items:
-                res = await _fetch_resale_for_gift(client, g_id)
+                res = await _fetch_resale_for_gift(client, g_id, on_gift_found=on_gift_found)
                 client_results.extend(res)
+                # تأخير بسيط لمنع الـ FloodWait من تيليجرام
+                await asyncio.sleep(1.5)
             return client_results
 
         gather_tasks = []
@@ -416,7 +441,7 @@ async def get_available_gifts() -> list[dict]:
         return []
 
 
-async def buy_gift_to_self(gift_id: int, gift_link: str = "", use_ton: bool = False) -> dict:
+async def buy_gift_to_self(gift_id: int, gift_link: str = "", stars: int | None = None, ton: float | None = None) -> dict:
     global _clients_pool
     import storage
 
@@ -438,12 +463,22 @@ async def buy_gift_to_self(gift_id: int, gift_link: str = "", use_ton: bool = Fa
             return {"ok": False, "error": "تعذر جلب بيانات المشتري."}
             
         link = gift_link or f"https://t.me/nft/{gift_id}"
+
+        if ton is not None:
+            price_obj = GiftResalePriceTon(toncoin_cent_count=utils.to_nano(ton))
+            use_ton_log = True
+        elif stars is not None:
+            price_obj = GiftResalePriceStar(star_count=int(stars))
+            use_ton_log = False
+        else:
+            return {"ok": False, "error": "لم يتم تحديد أي سعر للهدية."}
+
         await client.send_resold_gift(
             gift_link=link,
-            peer=me.id,
-            use_ton=use_ton
+            new_owner_chat_id=me.id,
+            price=price_obj
         )
-        logger.info("✅ حساب الشراء نفذ أمر اقتناص على الهدية رقم: %s بنجاح! (استخدام تون: %s)", gift_id, use_ton)
+        logger.info("✅ حساب الشراء نفذ أمر اقتناص على الهدية رقم: %s بنجاح! (استخدام تون: %s)", gift_id, use_ton_log)
         return {"ok": True}
     except Exception as e:
         logger.error("❌ فشل حساب الشراء في القنص: %s", e)
