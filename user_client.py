@@ -387,9 +387,19 @@ async def get_available_gifts(on_gift_found=None) -> list[dict]:
                 is_limited = getattr(g, "is_limited", False) or getattr(g, "limited", False)
                 g_id = getattr(g, "id", None)
                 slug = getattr(g, "slug", str(g_id))
+                title = getattr(g, "title", slug)
+                emoji = ""
+                sticker = getattr(g, "sticker", None)
+                if sticker:
+                    attributes = getattr(sticker, "attributes", [])
+                    for attr in attributes:
+                        if hasattr(attr, "alt"):
+                            emoji = attr.alt
+                            break
+
                 if is_limited and g_id is not None:
                     new_limited.append(g_id)
-                    new_limited_names.append({"id": g_id, "slug": slug})
+                    new_limited_names.append({"id": g_id, "slug": slug, "title": title, "emoji": emoji})
             
             if new_limited:
                 _cached_limited_gifts = new_limited
@@ -400,15 +410,47 @@ async def get_available_gifts(on_gift_found=None) -> list[dict]:
         if not _cached_limited_gifts:
             return []
 
+        # الفلترة المسبقة بناءً على الأهداف المحددة
+        targets = storage.get_targets()
+        filtered_gifts = []
+        if targets:
+            for gift_info in _cached_limited_gifts_names:
+                g_id = gift_info["id"]
+                slug = gift_info.get("slug", "")
+                title = gift_info.get("title", "")
+
+                include_gift = False
+                for target in targets:
+                    if target.get("type") == "any":
+                        # للـ any، نستثني الهدايا المحددة في قائمة الاستثناء
+                        excluded = target.get("excluded", [])
+                        if str(g_id) not in excluded and slug not in excluded and title not in excluded:
+                            include_gift = True
+                            break
+                    elif target.get("type") == "named":
+                        name = target.get("name", "").strip().lower()
+                        # للـ named، يجب أن يتطابق الاسم بشكل تقريبي
+                        if name in slug.lower() or name in str(g_id).lower() or name in title.lower():
+                            include_gift = True
+                            break
+                if include_gift:
+                    filtered_gifts.append(g_id)
+        else:
+            # إذا لم تكن هناك أهداف، لا نفحص شيئاً
+            filtered_gifts = []
+
+        if not filtered_gifts:
+            return []
+
         # الفحص المتزامن بين حسابات الفحص
-        total_gifts = len(_cached_limited_gifts)
-        logger.info("🚀 جاري الفحص المتزامن باستخدام %d حساب/حسابات...", len(active_checkers))
+        total_gifts = len(filtered_gifts)
+        logger.info("🚀 جاري الفحص المتزامن لعدد %d هدية باستخدام %d حساب/حسابات...", total_gifts, len(active_checkers))
         
         # توزيع الهدايا على الحسابات
         # بدلاً من إطلاق جميع الطلبات مرة واحدة (DDoS)،
         # نقوم بتقسيم الهدايا بحيث يعالج كل حساب حصته بشكل متسلسل
         client_gift_lists = {cid: [] for cid in [c.name for c in active_checkers]}
-        for i, g_id in enumerate(_cached_limited_gifts):
+        for i, g_id in enumerate(filtered_gifts):
             client = active_checkers[i % len(active_checkers)]
             client_gift_lists[client.name].append((client, g_id))
 

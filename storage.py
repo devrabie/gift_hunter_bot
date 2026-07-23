@@ -129,7 +129,8 @@ def add_target(target_type: str, max_price: int, name: str | None = None, **kwar
         "max_stars": max_price,  # التوافق مع الكود القديم والمستقبل
         "max_ton": kwargs.get("max_ton"),
         "max_mint": kwargs.get("max_mint"),
-        "max_rarity": kwargs.get("max_rarity")
+        "max_rarity": kwargs.get("max_rarity"),
+        "excluded": kwargs.get("excluded", [])
     }
     
     data["targets"].append(target_item)

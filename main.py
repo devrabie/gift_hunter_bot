@@ -12,7 +12,7 @@ import hunter
 import storage
 import user_client
 from config import BOT_TOKEN, DEVELOPER_ID
-from keyboards import (account_kb, admins_kb, back_main_kb, back_targets_kb, back_builder_kb, login_cancel_kb, main_menu_kb, targets_menu_kb, target_builder_kb, pool_select_kb, notifications_kb, catalog_gifts_kb)
+from keyboards import (account_kb, admins_kb, back_main_kb, back_targets_kb, back_builder_kb, login_cancel_kb, main_menu_kb, targets_menu_kb, target_builder_kb, pool_select_kb, notifications_kb, catalog_gifts_kb, exclude_gifts_kb)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(name)s | %(message)s", stream=sys.stdout)
 logger = logging.getLogger(__name__)
@@ -214,7 +214,8 @@ async def cb_tb_save_target(update: Update, context: ContextTypes.DEFAULT_TYPE) 
                 max_ton=draft.get("max_ton"), 
                 max_mint=draft.get("max_mint"), 
                 max_rarity=draft.get("max_rarity"),
-                t_id=draft.get("id")
+                t_id=draft.get("id"),
+                excluded=draft.get("excluded", [])
             )
         except TypeError:
             storage.add_target(t_type, max_stars, t_name)
@@ -242,6 +243,68 @@ async def cb_stop_hunt(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     await update.callback_query.answer()
     hunter.stop_hunting()
     await _send_main_menu(update, context)
+
+
+@_guard
+async def cb_tb_set_excluded(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    q = update.callback_query
+    await q.answer("جاري جلب الكتالوج...")
+    try:
+        import user_client
+        gifts = await user_client.get_catalog_names()
+        if not gifts:
+            raise ValueError("كتالوج الهدايا فارغ")
+
+        uid = update.effective_user.id
+        _session[uid]["catalog_gifts"] = gifts
+        draft = _session[uid].get("draft", {})
+        excluded = draft.setdefault("excluded", [])
+        await q.edit_message_text("🚫 *اختر الهدايا التي تريد استثناءها من الفحص:*", reply_markup=exclude_gifts_kb(gifts, excluded, 0), parse_mode="Markdown")
+    except Exception as e:
+        await q.answer("⚠️ تعذر جلب الكتالوج.", show_alert=True)
+
+@_guard
+async def cb_excl_page(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    q = update.callback_query
+    await q.answer()
+    page = int(q.data.replace("excl_page_", ""))
+    uid = update.effective_user.id
+    gifts = _session.get(uid, {}).get("catalog_gifts", [])
+    if gifts:
+        draft = _session.get(uid, {}).get("draft", {})
+        excluded = draft.setdefault("excluded", [])
+        await q.edit_message_text("🚫 *اختر الهدايا التي تريد استثناءها من الفحص:*", reply_markup=exclude_gifts_kb(gifts, excluded, page), parse_mode="Markdown")
+
+@_guard
+async def cb_toggle_excl(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    q = update.callback_query
+    slug = q.data.replace("toggle_excl_", "")
+    uid = update.effective_user.id
+    draft = _session.get(uid, {}).get("draft", {})
+    excluded = draft.setdefault("excluded", [])
+
+    if slug in excluded:
+        excluded.remove(slug)
+    else:
+        excluded.append(slug)
+
+    gifts = _session.get(uid, {}).get("catalog_gifts", [])
+
+    # Try to find current page based on message markup if possible, otherwise reset to 0 or keep current by parsing
+    # For simplicity, let's keep page 0 or find it from current buttons
+    page = 0
+    if q.message and q.message.reply_markup and q.message.reply_markup.inline_keyboard:
+        for row in q.message.reply_markup.inline_keyboard:
+            for btn in row:
+                if btn.callback_data and btn.callback_data.startswith("excl_page_"):
+                    # btn might be next or prev, let's parse
+                    if "السابق" in btn.text:
+                        page = int(btn.callback_data.replace("excl_page_", "")) + 1
+                    elif "التالي" in btn.text:
+                        page = int(btn.callback_data.replace("excl_page_", "")) - 1
+                    break
+
+    await q.edit_message_reply_markup(reply_markup=exclude_gifts_kb(gifts, excluded, page))
 
 
 @_guard
@@ -509,6 +572,9 @@ def main() -> None:
     app.add_handler(CallbackQueryHandler(cb_tb_set_ton, pattern="^tb_set_ton$"))
     app.add_handler(CallbackQueryHandler(cb_tb_set_mint, pattern="^tb_set_mint$"))
     app.add_handler(CallbackQueryHandler(cb_tb_set_rarity, pattern="^tb_set_rarity$"))
+    app.add_handler(CallbackQueryHandler(cb_tb_set_excluded, pattern="^tb_set_excluded$"))
+    app.add_handler(CallbackQueryHandler(cb_excl_page, pattern="^excl_page_"))
+    app.add_handler(CallbackQueryHandler(cb_toggle_excl, pattern="^toggle_excl_"))
     app.add_handler(CallbackQueryHandler(cb_tb_save_target, pattern="^tb_save_target$"))
     
     app.add_handler(CallbackQueryHandler(cb_start_hunt, pattern="^start_hunt$"))
