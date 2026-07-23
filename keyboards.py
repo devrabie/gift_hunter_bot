@@ -29,6 +29,10 @@ def targets_menu_kb(targets: list[dict]) -> InlineKeyboardMarkup:
         if t.get("max_stars"): conds.append(f"{t['max_stars']}⭐")
         if t.get("max_ton"): conds.append(f"{t['max_ton']}💎")
         if t.get("max_mint"): conds.append(f"#{t['max_mint']}")
+        if t.get("type") == "any":
+            ex_len = len(t.get("excluded", []))
+            if ex_len > 0:
+                conds.append(f"استثناء {ex_len}")
         
         label = f"❌ {name} | " + (" - ".join(conds) if conds else "بدون شروط")
         t_id = t.get("id", name)
@@ -52,7 +56,11 @@ def catalog_gifts_kb(gifts: list[dict], page: int = 0) -> InlineKeyboardMarkup:
     for gift in gifts[start_idx:end_idx]:
         # نستخدم slug للاسم
         slug = gift.get("slug", str(gift.get("id")))
-        rows.append([InlineKeyboardButton(slug, callback_data=f"sel_gift_{slug}")])
+        title = gift.get("title", slug)
+        emoji = gift.get("emoji", "")
+
+        display = f"{emoji} {title}".strip()
+        rows.append([InlineKeyboardButton(display, callback_data=f"sel_gift_{slug}")])
 
     # أزرار التنقل بين الصفحات
     nav_row = []
@@ -67,20 +75,59 @@ def catalog_gifts_kb(gifts: list[dict], page: int = 0) -> InlineKeyboardMarkup:
     rows.append([InlineKeyboardButton("🔙 رجوع", callback_data="menu_targets")])
     return InlineKeyboardMarkup(rows)
 
+def exclude_gifts_kb(gifts: list[dict], excluded: list[str], page: int = 0) -> InlineKeyboardMarkup:
+    rows = []
+    items_per_page = 10
+    total_pages = (len(gifts) + items_per_page - 1) // items_per_page
+    start_idx = page * items_per_page
+    end_idx = start_idx + items_per_page
+
+    for gift in gifts[start_idx:end_idx]:
+        slug = gift.get("slug", str(gift.get("id")))
+        title = gift.get("title", slug)
+        emoji = gift.get("emoji", "")
+
+        display = f"{emoji} {title}".strip()
+        if str(gift.get("id")) in excluded or slug in excluded or title in excluded:
+            display = f"✅ {display}"
+        else:
+            display = f"❌ {display}"
+
+        rows.append([InlineKeyboardButton(display, callback_data=f"toggle_excl_{slug}")])
+
+    nav_row = []
+    if page > 0:
+        nav_row.append(InlineKeyboardButton("⬅️ السابق", callback_data=f"excl_page_{page-1}"))
+    if page < total_pages - 1:
+        nav_row.append(InlineKeyboardButton("التالي ➡️", callback_data=f"excl_page_{page+1}"))
+
+    if nav_row:
+        rows.append(nav_row)
+
+    rows.append([InlineKeyboardButton("🔙 العودة للإعدادات", callback_data="tb_show_builder")])
+    return InlineKeyboardMarkup(rows)
+
 def target_builder_kb(draft: dict) -> InlineKeyboardMarkup:
     stars = f"{draft.get('max_stars')} ⭐" if draft.get('max_stars') else "لم يحدد ❌"
     ton = f"{draft.get('max_ton')} 💎" if draft.get('max_ton') else "لم يحدد ❌"
     mint = f"أقل من {draft.get('max_mint')}" if draft.get('max_mint') else "لم يحدد ❌"
     rarity = f"أندر من {draft.get('max_rarity')}‰" if draft.get('max_rarity') else "لم يحدد ❌"
 
-    return InlineKeyboardMarkup([
+    rows = [
         [InlineKeyboardButton(f"⭐ أقصى سعر نجوم: {stars}", callback_data="tb_set_stars")],
         [InlineKeyboardButton(f"💎 أقصى سعر TON: {ton}", callback_data="tb_set_ton")],
         [InlineKeyboardButton(f"🔢 أقصى رقم للنسخة: {mint}", callback_data="tb_set_mint")],
-        [InlineKeyboardButton(f"✨ أقصى نسبة ندرة: {rarity}", callback_data="tb_set_rarity")],
-        [InlineKeyboardButton("✅ حفظ الهدف والفلتر", callback_data="tb_save_target")],
-        [InlineKeyboardButton("🗑 إلغاء", callback_data="menu_targets")]
-    ])
+        [InlineKeyboardButton(f"✨ أقصى نسبة ندرة: {rarity}", callback_data="tb_set_rarity")]
+    ]
+
+    if draft.get("type") == "any":
+        excl_count = len(draft.get("excluded", []))
+        rows.append([InlineKeyboardButton(f"🚫 استثناء هدايا محددة ({excl_count})", callback_data="tb_set_excluded")])
+
+    rows.append([InlineKeyboardButton("✅ حفظ الهدف والفلتر", callback_data="tb_save_target")])
+    rows.append([InlineKeyboardButton("🗑 إلغاء", callback_data="menu_targets")])
+
+    return InlineKeyboardMarkup(rows)
 
 def account_kb(has_session: bool, pool_count: int) -> InlineKeyboardMarkup:
     rows = []
