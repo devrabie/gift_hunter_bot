@@ -424,13 +424,28 @@ async def get_available_gifts(on_gift_found=None) -> list[dict]:
                     if target.get("type") == "any":
                         # للـ any، نستثني الهدايا المحددة في قائمة الاستثناء
                         excluded = target.get("excluded", [])
-                        if str(g_id) not in excluded and slug not in excluded and title not in excluded:
+                        # التعامل الآمن مع الأهداف المستثناة (Excluded)
+                        is_excluded = False
+                        for ex in excluded:
+                            ex_str = str(ex).lower()
+                            if ex_str == str(g_id).lower() or ex_str == (slug.lower() if slug else "") or ex_str == (title.lower() if title else ""):
+                                is_excluded = True
+                                break
+
+                        if not is_excluded:
                             include_gift = True
                             break
                     elif target.get("type") == "named":
-                        name = target.get("name", "").strip().lower()
+                        name = target.get("name", "")
+                        if name is not None:
+                            name = str(name).strip().lower()
+                        else:
+                            name = ""
                         # للـ named، يجب أن يتطابق الاسم بشكل تقريبي
-                        if name in slug.lower() or name in str(g_id).lower() or name in title.lower():
+                        safe_slug = slug.lower() if slug else ""
+                        safe_id = str(g_id).lower() if g_id else ""
+                        safe_title = title.lower() if title else ""
+                        if name and (name in safe_slug or name in safe_id or name in safe_title):
                             include_gift = True
                             break
                 if include_gift:
@@ -454,7 +469,7 @@ async def get_available_gifts(on_gift_found=None) -> list[dict]:
             client = active_checkers[i % len(active_checkers)]
             client_gift_lists[client.name].append((client, g_id))
 
-        # لتجنب الـ FloodWait داخل الحساب الواحد نقوم بالفحص التسلسلي للحساب مع تأخير 1.5 ثانية.
+        # لتجنب الـ FloodWait داخل الحساب الواحد نقوم بالفحص التسلسلي للحساب مع تأخير 1.0 ثانية بدلاً من 1.5.
         # سرعة الفحص ستأتي من خلال عمل الحسابات معاً كفريق.
         async def run_client_sequential(c_name, items):
             client_results = []
@@ -462,7 +477,7 @@ async def get_available_gifts(on_gift_found=None) -> list[dict]:
                 res = await _fetch_resale_for_gift(client, g_id, on_gift_found=on_gift_found)
                 client_results.extend(res)
                 # تأخير بسيط لمنع الـ FloodWait من تيليجرام
-                await asyncio.sleep(1.5)
+                await asyncio.sleep(1.0)
             return client_results
 
         gather_tasks = []
