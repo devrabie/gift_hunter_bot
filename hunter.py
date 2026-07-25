@@ -46,8 +46,19 @@ async def _send_notify(chat_id: int, text: str) -> None:
 def _is_match(gift: dict, target: dict) -> bool:
     """المطابقة الذكية والعميقة بين شروط الهدف والمواصفات الحية للهدية"""
     if target.get("type") == "named":
-        search = target.get("name", "").strip().lower()
-        if search not in gift.get("base_name", "").lower() and search not in gift.get("name", "").lower():
+        search = target.get("name", "")
+        if search is not None:
+            search = str(search).strip().lower()
+        else:
+            search = ""
+
+        base_name = gift.get("base_name", "")
+        safe_base = str(base_name).lower() if base_name is not None else ""
+
+        name = gift.get("name", "")
+        safe_name = str(name).lower() if name is not None else ""
+
+        if search and search not in safe_base and search not in safe_name:
             return False
 
     # فحص رقم الإصدار (Mint Number)
